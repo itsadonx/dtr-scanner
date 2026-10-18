@@ -16,7 +16,12 @@ class FaceAnalyzer(
     private val onLiveFaceSignature: (FloatArray) -> Unit,
     private val consumeLivenessAfterCapture: Boolean = false,
     private val extractMode: ExtractMode = ExtractMode.MATCH,
+    private val livenessMode: FaceLivenessTracker.Mode = FaceLivenessTracker.Mode.CHECK_IN,
 ) : ImageAnalysis.Analyzer {
+
+    init {
+        livenessTracker.mode = livenessMode
+    }
 
     private val detector = FaceDetection.getClient(
         FaceDetectorOptions.Builder()

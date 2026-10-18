@@ -40,10 +40,9 @@ fun ScanHubScreen(
     var mode by remember { mutableIntStateOf(MODE_QR) }
 
     val enrolled = remember(faceProfiles) {
-        faceProfiles.mapNotNull { profile ->
-            if (!FaceSignature.isCurrentFormat(profile.signature)) return@mapNotNull null
-            val signature = FaceSignature.decode(profile.signature) ?: return@mapNotNull null
-            profile.displayName to signature
+        faceProfiles.flatMap { profile ->
+            if (!FaceSignature.isCurrentFormat(profile.signature)) return@flatMap emptyList()
+            FaceSignature.decodeAll(profile.signature).map { profile.displayName to it }
         }
     }
 

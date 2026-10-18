@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.dtr.scanner.data.FaceProfile
+import com.dtr.scanner.face.FaceLivenessTracker.Mode as LivenessMode
 import com.dtr.scanner.face.FaceSignature
 import com.dtr.scanner.face.FaceSignature.ExtractMode
 import java.time.Instant
@@ -39,7 +40,7 @@ private val enrolledFormatter: DateTimeFormatter =
 fun PeopleScreen(
     profiles: List<FaceProfile>,
     enrollStatus: String,
-    onEnroll: (displayName: String, signature: FloatArray) -> Unit,
+    onEnroll: (displayName: String, signatures: List<FloatArray>) -> Unit,
     onDeleteProfile: (Long) -> Unit,
     onFaceSampleProgress: (Int, Int) -> Unit = { _, _ -> },
     onLivenessHint: (String) -> Unit = {},
@@ -67,8 +68,8 @@ fun PeopleScreen(
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = "After the live check, hold still while we capture " +
-                            "${FaceSignature.ENROLLMENT_SAMPLES} samples, then save.",
+                        text = "Blink, turn left/right, nod up/down, then hold still while we capture " +
+                            "${FaceSignature.ENROLLMENT_SAMPLES} face samples for this person.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
@@ -78,6 +79,7 @@ fun PeopleScreen(
                         livenessSessionKey = enrollLivenessSession,
                         onLivenessHint = onLivenessHint,
                         extractMode = ExtractMode.ENROLL,
+                        livenessMode = LivenessMode.ENROLLMENT,
                         onFaceSignature = { signature ->
                             if (samples.size >= FaceSignature.ENROLLMENT_SAMPLES) return@FaceRecognitionScreen
                             val consistent = samples.isEmpty() ||
@@ -101,9 +103,8 @@ fun PeopleScreen(
                     Button(
                         onClick = {
                             val trimmed = name.trim()
-                            val averaged = FaceSignature.average(samples)
-                            if (trimmed.isNotEmpty() && averaged != null) {
-                                onEnroll(trimmed, averaged)
+                            if (trimmed.isNotEmpty() && samples.size >= FaceSignature.ENROLLMENT_SAMPLES) {
+                                onEnroll(trimmed, samples)
                                 name = ""
                                 samples = emptyList()
                             }
@@ -156,12 +157,13 @@ private fun FaceProfileRow(
         .atZone(ZoneId.systemDefault())
         .format(enrolledFormatter)
     val needsReEnroll = !FaceSignature.isCurrentFormat(profile.signature)
+    val templateCount = FaceSignature.decodeAll(profile.signature).size
 
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(text = profile.displayName, style = MaterialTheme.typography.titleMedium)
             Text(
-                text = "Enrolled $enrolledAt",
+                text = "Enrolled $enrolledAt · $templateCount face template(s)",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

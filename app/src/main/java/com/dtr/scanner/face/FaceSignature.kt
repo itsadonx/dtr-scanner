@@ -68,17 +68,38 @@ object FaceSignature {
 
     fun encode(values: FloatArray): String = SIGNATURE_VERSION_PREFIX + values.joinToString(",")
 
-    fun decode(raw: String): FloatArray? {
+    /** Stores every enrollment capture as its own template (better than a single average). */
+    fun encodeAll(samples: List<FloatArray>): String {
+        require(samples.isNotEmpty()) { "samples must not be empty" }
+        if (samples.size == 1) return encode(samples.first())
+        return SIGNATURE_MULTI_PREFIX + samples.joinToString(MULTI_SAMPLE_SEPARATOR) {
+            it.joinToString(",")
+        }
+    }
+
+    fun decode(raw: String): FloatArray? = decodeAll(raw).firstOrNull()
+
+    fun decodeAll(raw: String): List<FloatArray> {
+        if (raw.startsWith(SIGNATURE_MULTI_PREFIX)) {
+            return raw.removePrefix(SIGNATURE_MULTI_PREFIX)
+                .split(MULTI_SAMPLE_SEPARATOR)
+                .mapNotNull { body ->
+                    if (body.isBlank()) return@mapNotNull null
+                    body.split(",").mapNotNull { it.toFloatOrNull() }.toFloatArray().takeIf { it.isNotEmpty() }
+                }
+        }
         val body = if (raw.startsWith(SIGNATURE_VERSION_PREFIX)) {
             raw.removePrefix(SIGNATURE_VERSION_PREFIX)
         } else {
             raw
         }
-        if (body.isBlank()) return null
-        return body.split(",").mapNotNull { it.toFloatOrNull() }.toFloatArray().takeIf { it.isNotEmpty() }
+        if (body.isBlank()) return emptyList()
+        val single = body.split(",").mapNotNull { it.toFloatOrNull() }.toFloatArray().takeIf { it.isNotEmpty() }
+        return if (single == null) emptyList() else listOf(single)
     }
 
-    fun isCurrentFormat(raw: String): Boolean = raw.startsWith(SIGNATURE_VERSION_PREFIX)
+    fun isCurrentFormat(raw: String): Boolean =
+        raw.startsWith(SIGNATURE_VERSION_PREFIX) || raw.startsWith(SIGNATURE_MULTI_PREFIX)
 
     fun distance(a: FloatArray, b: FloatArray): Float {
         if (a.size != b.size) return Float.MAX_VALUE
@@ -113,7 +134,10 @@ object FaceSignature {
         }
 
         val ranked = profiles
-            .map { (name, signature) -> name to distance(probe, signature) }
+            .groupBy { it.first }
+            .map { (name, entries) ->
+                name to entries.minOf { distance(probe, it.second) }
+            }
             .sortedBy { it.second }
 
         val (bestName, bestDistance) = ranked.first()
@@ -129,4 +153,6 @@ object FaceSignature {
     }
 
     private const val SIGNATURE_VERSION_PREFIX = "2|"
+    private const val SIGNATURE_MULTI_PREFIX = "2m|"
+    private const val MULTI_SAMPLE_SEPARATOR = "||"
 }

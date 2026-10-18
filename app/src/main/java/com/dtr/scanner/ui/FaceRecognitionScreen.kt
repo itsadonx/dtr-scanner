@@ -27,6 +27,7 @@ import androidx.core.content.ContextCompat
 import com.dtr.scanner.camera.FaceAnalyzer
 import com.dtr.scanner.face.FaceLivenessTracker
 import com.dtr.scanner.face.FaceSignature.ExtractMode
+import com.dtr.scanner.face.FaceLivenessTracker.Mode as LivenessMode
 import java.util.concurrent.Executors
 
 @Composable
@@ -37,6 +38,7 @@ fun FaceRecognitionScreen(
     livenessSessionKey: Int = 0,
     consumeLivenessAfterCapture: Boolean = false,
     extractMode: ExtractMode = ExtractMode.MATCH,
+    livenessMode: LivenessMode = LivenessMode.CHECK_IN,
     modifier: Modifier = Modifier,
     useFrontCamera: Boolean = true,
 ) {
@@ -52,7 +54,7 @@ fun FaceRecognitionScreen(
         CameraSelector.LENS_FACING_BACK
     }
 
-    val faceAnalyzer = remember(livenessTracker) {
+    val faceAnalyzer = remember(livenessTracker, livenessMode, extractMode) {
         FaceAnalyzer(
             livenessTracker = livenessTracker,
             onLivenessHint = { hint ->
@@ -62,6 +64,7 @@ fun FaceRecognitionScreen(
             onLiveFaceSignature = onFaceSignature,
             consumeLivenessAfterCapture = consumeLivenessAfterCapture,
             extractMode = extractMode,
+            livenessMode = livenessMode,
         )
     }
 

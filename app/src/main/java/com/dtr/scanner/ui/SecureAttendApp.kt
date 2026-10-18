@@ -63,8 +63,8 @@ fun SecureAttendApp() {
     var activeScan by remember { mutableStateOf<ActiveScan?>(null) }
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
 
-    var faceStatus by rememberSaveable { mutableStateOf("Blink once, turn your head, then check in.") }
-    var enrollStatus by rememberSaveable { mutableStateOf("Blink once and turn your head to enroll.") }
+    var faceStatus by rememberSaveable { mutableStateOf("Blink once to check in.") }
+    var enrollStatus by rememberSaveable { mutableStateOf("Blink and move your head to start enrollment.") }
     var faceLivenessSession by rememberSaveable { mutableIntStateOf(0) }
     var enrollLivenessSession by rememberSaveable { mutableIntStateOf(0) }
 
@@ -228,8 +228,8 @@ fun SecureAttendApp() {
                         profiles = faceProfiles,
                         enrollStatus = enrollStatus,
                         enrollLivenessSession = enrollLivenessSession,
-                        onEnroll = { name, signature ->
-                            viewModel.enrollFace(name, signature)
+                        onEnroll = { name, signatures ->
+                            viewModel.enrollFace(name, signatures)
                             enrollLivenessSession++
                             enrollStatus = "Saved $name."
                             Toast.makeText(context, "Enrolled $name", Toast.LENGTH_SHORT).show()
@@ -293,10 +293,9 @@ private fun FaceScanContent(
     modifier: Modifier = Modifier,
 ) {
     val enrolled = androidx.compose.runtime.remember(faceProfiles) {
-        faceProfiles.mapNotNull { profile ->
-            if (!FaceSignature.isCurrentFormat(profile.signature)) return@mapNotNull null
-            val signature = FaceSignature.decode(profile.signature) ?: return@mapNotNull null
-            profile.displayName to signature
+        faceProfiles.flatMap { profile ->
+            if (!FaceSignature.isCurrentFormat(profile.signature)) return@flatMap emptyList()
+            FaceSignature.decodeAll(profile.signature).map { profile.displayName to it }
         }
     }
     val hasLegacy = faceProfiles.any { !FaceSignature.isCurrentFormat(it.signature) }

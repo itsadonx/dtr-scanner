@@ -26,7 +26,7 @@ fun SettingsScreen(
     profiles: List<FaceProfile>,
     enrollStatus: String,
     enrollLivenessSession: Int,
-    onEnroll: (String, FloatArray) -> Unit,
+    onEnroll: (String, List<FloatArray>) -> Unit,
     onDeleteProfile: (Long) -> Unit,
     onFaceSampleProgress: (Int, Int) -> Unit,
     onLivenessHint: (String) -> Unit,

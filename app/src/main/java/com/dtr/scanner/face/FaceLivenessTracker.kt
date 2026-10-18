@@ -5,17 +5,29 @@ import com.google.mlkit.vision.face.FaceLandmark
 import kotlin.math.abs
 
 /**
- * Presentation-attack checks for face check-in: blink, left/right head turn,
- * and rejection of perfectly still faces (typical of a photo or screen).
+ * Presentation-attack checks: blink plus optional head motion for enrollment.
+ * Check-in uses [Mode.CHECK_IN] (blink only); registration uses [Mode.ENROLLMENT].
  */
 class FaceLivenessTracker {
+
+    enum class Mode {
+        /** Attendance scan: blink once, no head-turn challenge. */
+        CHECK_IN,
+        /** Enrollment: blink, turn left/right, nod up/down. */
+        ENROLLMENT,
+    }
+
+    var mode: Mode = Mode.CHECK_IN
 
     private var sawEyesOpen = false
     private var sawEyesClosed = false
     private var sawBlink = false
     private var referenceYaw: Float? = null
+    private var referencePitch: Float? = null
     private var minHeadYaw = Float.MAX_VALUE
     private var maxHeadYaw = Float.MIN_VALUE
+    private var minHeadPitch = Float.MAX_VALUE
+    private var maxHeadPitch = Float.MIN_VALUE
     private var staticFrameCount = 0
     private var lastNoseX: Float? = null
     private var lastNoseY: Float? = null
@@ -32,8 +44,11 @@ class FaceLivenessTracker {
         sawEyesClosed = false
         sawBlink = false
         referenceYaw = null
+        referencePitch = null
         minHeadYaw = Float.MAX_VALUE
         maxHeadYaw = Float.MIN_VALUE
+        minHeadPitch = Float.MAX_VALUE
+        maxHeadPitch = Float.MIN_VALUE
         staticFrameCount = 0
         lastNoseX = null
         lastNoseY = null
@@ -72,10 +87,16 @@ class FaceLivenessTracker {
         }
 
         updateBlink(face)
-        updateHeadMotion(face)
+        if (mode == Mode.ENROLLMENT) {
+            updateHeadMotion(face)
+        }
 
-        val motionOk = hasHeadTurnChallenge()
-        if (sawBlink && motionOk) {
+        val challengeOk = when (mode) {
+            Mode.CHECK_IN -> sawBlink
+            Mode.ENROLLMENT -> sawBlink && hasEnrollmentHeadChallenge()
+        }
+
+        if (challengeOk) {
             verifiedUntilMs = nowMs + VERIFICATION_WINDOW_MS
             return LivenessUpdate(
                 hint = "Live check passed — matching face…",
@@ -84,10 +105,18 @@ class FaceLivenessTracker {
             )
         }
 
-        val hint = when {
-            !sawBlink -> "Blink once so we know you're live (not a photo)."
-            !motionOk -> "Slowly turn your head left, then right."
-            else -> "Verifying…"
+        val hint = when (mode) {
+            Mode.CHECK_IN -> when {
+                !sawBlink -> "Blink once so we know you're live (not a photo)."
+                else -> "Verifying…"
+            }
+
+            Mode.ENROLLMENT -> when {
+                !sawBlink -> "Blink once, then move your head to enroll."
+                !hasYawChallenge() -> "Slowly turn your head left, then right."
+                !hasPitchChallenge() -> "Slowly nod up, then down."
+                else -> "Verifying…"
+            }
         }
         return LivenessUpdate(
             hint = hint,
@@ -101,10 +130,18 @@ class FaceLivenessTracker {
         resetChallenge()
     }
 
-    private fun hasHeadTurnChallenge(): Boolean {
+    private fun hasEnrollmentHeadChallenge(): Boolean = hasYawChallenge() && hasPitchChallenge()
+
+    private fun hasYawChallenge(): Boolean {
         val ref = referenceYaw ?: return false
         return minHeadYaw <= ref - MIN_YAW_EACH_SIDE_DEGREES &&
             maxHeadYaw >= ref + MIN_YAW_EACH_SIDE_DEGREES
+    }
+
+    private fun hasPitchChallenge(): Boolean {
+        val ref = referencePitch ?: return false
+        return minHeadPitch <= ref - MIN_PITCH_EACH_SIDE_DEGREES &&
+            maxHeadPitch >= ref + MIN_PITCH_EACH_SIDE_DEGREES
     }
 
     private fun detectStaticPhoto(face: Face) {
@@ -155,6 +192,9 @@ class FaceLivenessTracker {
             if (referenceYaw == null) {
                 referenceYaw = face.headEulerAngleY
             }
+            if (referencePitch == null) {
+                referencePitch = face.headEulerAngleX
+            }
         }
         if (sawEyesOpen && eyesClosed) {
             sawEyesClosed = true
@@ -166,8 +206,11 @@ class FaceLivenessTracker {
 
     private fun updateHeadMotion(face: Face) {
         val yaw = face.headEulerAngleY
+        val pitch = face.headEulerAngleX
         minHeadYaw = minOf(minHeadYaw, yaw)
         maxHeadYaw = maxOf(maxHeadYaw, yaw)
+        minHeadPitch = minOf(minHeadPitch, pitch)
+        maxHeadPitch = maxOf(maxHeadPitch, pitch)
     }
 
     data class LivenessUpdate(
@@ -180,6 +223,7 @@ class FaceLivenessTracker {
         private const val EYE_OPEN_MIN = 0.65f
         private const val EYE_CLOSED_MAX = 0.35f
         private const val MIN_YAW_EACH_SIDE_DEGREES = 7f
+        private const val MIN_PITCH_EACH_SIDE_DEGREES = 6f
         private const val STATIC_MOVE_PX = 1.25f
         private const val EYE_DELTA_RESET = 0.08f
         private const val YAW_DELTA_RESET_DEG = 0.45f

@@ -57,14 +57,14 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         return true
     }
 
-    fun enrollFace(displayName: String, signature: FloatArray) {
+    fun enrollFace(displayName: String, signatures: List<FloatArray>) {
         val trimmed = displayName.trim()
-        if (trimmed.isEmpty()) return
+        if (trimmed.isEmpty() || signatures.isEmpty()) return
         viewModelScope.launch {
             faceDao.insert(
                 FaceProfile(
                     displayName = trimmed,
-                    signature = FaceSignature.encode(signature),
+                    signature = FaceSignature.encodeAll(signatures),
                     enrolledAtEpochMs = System.currentTimeMillis(),
                 ),
             )
