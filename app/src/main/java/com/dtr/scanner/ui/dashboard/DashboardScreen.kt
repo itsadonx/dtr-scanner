@@ -51,7 +51,6 @@ import com.dtr.scanner.ui.components.DevelopedByFooter
 import com.dtr.scanner.ui.theme.RoyalBlue
 import com.dtr.scanner.ui.theme.RoyalBlueDark
 import com.dtr.scanner.ui.theme.ScreenBackground
-import com.dtr.scanner.ui.theme.SkyAccent
 import com.dtr.scanner.ui.theme.SuccessGreen
 import com.dtr.scanner.ui.theme.SuccessGreenBg
 import com.dtr.scanner.ui.theme.TextMuted
