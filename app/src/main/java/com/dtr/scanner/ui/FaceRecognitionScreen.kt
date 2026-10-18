@@ -6,8 +6,12 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.graphics.Color
+import com.dtr.scanner.ui.components.FaceScanHintBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.res.stringResource
@@ -45,6 +49,7 @@ fun FaceRecognitionScreen(
     livenessMode: LivenessMode = LivenessMode.CHECK_IN,
     modifier: Modifier = Modifier,
     useFrontCamera: Boolean = true,
+    useDedicatedHintBar: Boolean = true,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -88,60 +93,95 @@ fun FaceRecognitionScreen(
         }
     }
 
-    val bannerText = liveHint ?: statusText
+    val primaryHint = liveHint ?: statusText
+    val secondaryHint = if (liveHint != null) {
+        stringResource(R.string.scan_face_instruction)
+    } else {
+        null
+    }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    val cameraContent: @Composable () -> Unit = {
         key(lensFacing) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                PreviewView(ctx).apply {
-                    scaleType = PreviewView.ScaleType.FILL_CENTER
-                }
-            },
-            update = { previewView ->
-                val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-                cameraProviderFuture.addListener(
-                    {
-                        val cameraProvider = cameraProviderFuture.get()
-                        val preview = Preview.Builder().build().also {
-                            it.surfaceProvider = previewView.surfaceProvider
-                        }
-
-                        val analysis = ImageAnalysis.Builder()
-                            .setTargetResolution(Size(1280, 720))
-                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                            .build()
-                            .also {
-                                it.setAnalyzer(cameraExecutor, faceAnalyzer)
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
+                    PreviewView(ctx).apply {
+                        scaleType = PreviewView.ScaleType.FILL_CENTER
+                    }
+                },
+                update = { previewView ->
+                    val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+                    cameraProviderFuture.addListener(
+                        {
+                            val cameraProvider = cameraProviderFuture.get()
+                            val preview = Preview.Builder().build().also {
+                                it.surfaceProvider = previewView.surfaceProvider
                             }
 
-                        val selector = CameraSelector.Builder()
-                            .requireLensFacing(lensFacing)
-                            .build()
+                            val analysis = ImageAnalysis.Builder()
+                                .setTargetResolution(Size(1280, 720))
+                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                .build()
+                                .also {
+                                    it.setAnalyzer(cameraExecutor, faceAnalyzer)
+                                }
 
-                        try {
-                            cameraProvider.unbindAll()
-                            cameraProvider.bindToLifecycle(
-                                lifecycleOwner,
-                                selector,
-                                preview,
-                                analysis,
-                            )
-                        } catch (_: Exception) {
-                            // Camera bind can fail if permission was revoked mid-session.
-                        }
-                    },
-                    ContextCompat.getMainExecutor(context),
-                )
-            },
-        )
+                            val selector = CameraSelector.Builder()
+                                .requireLensFacing(lensFacing)
+                                .build()
+
+                            try {
+                                cameraProvider.unbindAll()
+                                cameraProvider.bindToLifecycle(
+                                    lifecycleOwner,
+                                    selector,
+                                    preview,
+                                    analysis,
+                                )
+                            } catch (_: Exception) {
+                                // Camera bind can fail if permission was revoked mid-session.
+                            }
+                        },
+                        ContextCompat.getMainExecutor(context),
+                    )
+                },
+            )
         }
+    }
 
-        ScanFrameOverlay(
-            instruction = stringResource(R.string.scan_face_instruction),
-            statusLine = bannerText,
-            modifier = Modifier.align(Alignment.Center),
-        )
+    if (useDedicatedHintBar) {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color.Black),
+        ) {
+            FaceScanHintBar(
+                primaryLine = primaryHint,
+                secondaryLine = secondaryHint,
+            )
+            Box(modifier = Modifier.weight(1f).fillMaxSize()) {
+                cameraContent()
+                ScanFrameOverlay(
+                    instruction = "",
+                    statusLine = null,
+                    showHintText = false,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+        }
+    } else {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color.Black),
+        ) {
+            cameraContent()
+            ScanFrameOverlay(
+                instruction = stringResource(R.string.scan_face_instruction),
+                statusLine = primaryHint,
+                showHintText = true,
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
     }
 }

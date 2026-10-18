@@ -43,8 +43,10 @@ object FaceSignature {
     }
 
     fun isFrontalForEnrollment(face: Face): Boolean {
-        return abs(face.headEulerAngleY) <= 14f && abs(face.headEulerAngleX) <= 14f
+        return abs(face.headEulerAngleY) <= 20f && abs(face.headEulerAngleX) <= 20f
     }
+
+    val signatureFloatCount: Int get() = contourPointCounts.sum() * 2
 
     fun extract(face: Face, mode: ExtractMode = ExtractMode.MATCH): FloatArray? {
         // Use the same pose bounds for enroll and check-in so stored templates match live probes.
@@ -62,16 +64,42 @@ object FaceSignature {
         val centerY = (leftEye.y + rightEye.y) / 2f
         val scale = hypot(leftEye.x - rightEye.x, leftEye.y - rightEye.y).coerceAtLeast(1f)
 
-        val values = mutableListOf<Float>()
-        for (type in contourTypes) {
-            val points = face.getContour(type)?.points ?: return null
-            if (points.isEmpty()) return null
-            for (point in points) {
-                values.add((point.x - centerX) / scale)
-                values.add((point.y - centerY) / scale)
-            }
+        val values = ArrayList<Float>(signatureFloatCount)
+        for (index in contourTypes.indices) {
+            appendContourPoints(
+                face = face,
+                type = contourTypes[index],
+                expectedPoints = contourPointCounts[index],
+                centerX = centerX,
+                centerY = centerY,
+                scale = scale,
+                out = values,
+            )
         }
         return values.toFloatArray()
+    }
+
+    private fun appendContourPoints(
+        face: Face,
+        type: Int,
+        expectedPoints: Int,
+        centerX: Float,
+        centerY: Float,
+        scale: Float,
+        out: MutableList<Float>,
+    ) {
+        val raw = face.getContour(type)?.points.orEmpty()
+        var used = 0
+        for (point in raw) {
+            if (used >= expectedPoints) break
+            out.add((point.x - centerX) / scale)
+            out.add((point.y - centerY) / scale)
+            used++
+        }
+        repeat(expectedPoints - used) {
+            out.add(0f)
+            out.add(0f)
+        }
     }
 
     fun encode(values: FloatArray): String = SIGNATURE_VERSION_PREFIX + values.joinToString(",")
@@ -160,11 +188,25 @@ object FaceSignature {
         val shared = minOf(a.size, b.size)
         if (shared < 32) return Float.MAX_VALUE
         var sum = 0f
-        for (i in 0 until shared) {
-            val delta = a[i] - b[i]
-            sum += delta * delta
+        var used = 0
+        var i = 0
+        while (i + 1 < shared) {
+            val ax = a[i]
+            val ay = a[i + 1]
+            val bx = b[i]
+            val by = b[i + 1]
+            if (ax == 0f && ay == 0f && bx == 0f && by == 0f) {
+                i += 2
+                continue
+            }
+            val dx = ax - bx
+            val dy = ay - by
+            sum += dx * dx + dy * dy
+            used += 2
+            i += 2
         }
-        return sqrt(sum / shared)
+        if (used < 32) return Float.MAX_VALUE
+        return sqrt(sum / used)
     }
 
     fun average(samples: List<FloatArray>): FloatArray? {

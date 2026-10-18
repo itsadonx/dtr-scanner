@@ -145,6 +145,7 @@ fun PeopleScreen(
                             onLivenessHint = onLivenessHint,
                             extractMode = ExtractMode.ENROLL,
                             livenessMode = LivenessMode.ENROLLMENT,
+                            useDedicatedHintBar = false,
                             captureFaceThumbnail = true,
                             onFaceCapture = { capture ->
                                 if (samples.size >= FaceSignature.ENROLLMENT_SAMPLES) {

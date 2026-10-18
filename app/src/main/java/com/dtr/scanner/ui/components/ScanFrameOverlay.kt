@@ -29,6 +29,7 @@ import com.dtr.scanner.ui.theme.SkyAccent
 fun ScanFrameOverlay(
     instruction: String,
     statusLine: String? = null,
+    showHintText: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -74,7 +75,9 @@ fun ScanFrameOverlay(
             }
         }
 
-        ColumnTopText(instruction = instruction, statusLine = statusLine)
+        if (showHintText) {
+            ColumnTopText(instruction = instruction, statusLine = statusLine)
+        }
     }
 }
 
