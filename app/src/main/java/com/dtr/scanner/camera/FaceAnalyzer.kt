@@ -77,6 +77,10 @@ class FaceAnalyzer(
                     publishHint("Look straight at the camera to record this sample.")
                     return@addOnSuccessListener
                 }
+                if (signature.all { it == 0f }) {
+                    publishHint("Hold still — we could not read facial landmarks.")
+                    return@addOnSuccessListener
+                }
                 val now = System.currentTimeMillis()
                 if (now - lastEmitTimeMs < EMIT_COOLDOWN_MS) return@addOnSuccessListener
                 lastEmitTimeMs = now

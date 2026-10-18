@@ -153,7 +153,7 @@ fun PeopleScreen(
                                 }
                                 val signature = capture.signature
                                 val consistent = samples.isEmpty() ||
-                                    FaceSignature.distance(samples.last(), signature) < 0.22f
+                                    FaceSignature.distance(samples.last(), signature) < 0.12f
                                 if (!consistent) return@FaceRecognitionScreen
                                 samples = samples + signature
                                 capture.thumbnailJpeg?.let { jpeg ->
@@ -315,7 +315,8 @@ private fun FaceProfileRow(
     val enrolledAt = Instant.ofEpochMilli(profile.enrolledAtEpochMs)
         .atZone(ZoneId.systemDefault())
         .format(enrolledFormatter)
-    val needsReEnroll = !FaceSignature.isCurrentFormat(profile.signature)
+    val needsReEnroll = !FaceSignature.isCurrentFormat(profile.signature) ||
+        FaceSignature.isLegacyFormat(profile.signature)
     val templateCount = FaceSignature.decodeAll(profile.signature).size
 
     Card(modifier = modifier.fillMaxWidth()) {

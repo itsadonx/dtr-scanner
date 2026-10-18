@@ -1,39 +1,28 @@
 package com.dtr.scanner.face
 
 import com.google.mlkit.vision.face.Face
-import com.google.mlkit.vision.face.FaceContour
 import com.google.mlkit.vision.face.FaceLandmark
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.sqrt
 
 object FaceSignature {
-    private val contourTypes = listOf(
-        FaceContour.FACE,
-        FaceContour.LEFT_EYEBROW_TOP,
-        FaceContour.LEFT_EYEBROW_BOTTOM,
-        FaceContour.RIGHT_EYEBROW_TOP,
-        FaceContour.RIGHT_EYEBROW_BOTTOM,
-        FaceContour.LEFT_EYE,
-        FaceContour.RIGHT_EYE,
-        FaceContour.NOSE_BRIDGE,
-        FaceContour.NOSE_BOTTOM,
-        FaceContour.UPPER_LIP_TOP,
-        FaceContour.UPPER_LIP_BOTTOM,
-        FaceContour.LOWER_LIP_TOP,
-        FaceContour.LOWER_LIP_BOTTOM,
-        FaceContour.LEFT_CHEEK,
-        FaceContour.RIGHT_CHEEK,
+    private val landmarkTypes = intArrayOf(
+        FaceLandmark.LEFT_EYE,
+        FaceLandmark.RIGHT_EYE,
+        FaceLandmark.NOSE_BASE,
+        FaceLandmark.MOUTH_LEFT,
+        FaceLandmark.MOUTH_RIGHT,
+        FaceLandmark.MOUTH_BOTTOM,
+        FaceLandmark.LEFT_EAR,
+        FaceLandmark.RIGHT_EAR,
     )
 
     /** Lower is a closer match. Same person is usually under [MATCH_THRESHOLD]. */
-    const val MATCH_THRESHOLD = 0.34f
+    const val MATCH_THRESHOLD = 0.22f
 
-    /** Strong match — accept even if runner-up is close. */
-    private const val STRONG_MATCH_THRESHOLD = 0.24f
-
-    /** Best match must beat the runner-up by at least this much (when multiple people enrolled). */
-    const val MIN_MATCH_MARGIN = 0.012f
+    private const val STRONG_MATCH_THRESHOLD = 0.12f
+    const val MIN_MATCH_MARGIN = 0.008f
 
     const val ENROLLMENT_SAMPLES = 5
 
@@ -43,16 +32,15 @@ object FaceSignature {
     }
 
     fun isFrontalForEnrollment(face: Face): Boolean {
-        return abs(face.headEulerAngleY) <= 20f && abs(face.headEulerAngleX) <= 20f
+        return abs(face.headEulerAngleY) <= 22f && abs(face.headEulerAngleX) <= 22f
     }
 
-    val signatureFloatCount: Int get() = contourPointCounts.sum() * 2
+    val signatureFloatCount: Int = landmarkTypes.size * 2
 
     fun extract(face: Face, mode: ExtractMode = ExtractMode.MATCH): FloatArray? {
-        // Use the same pose bounds for enroll and check-in so stored templates match live probes.
-        val maxYaw = 22f
-        val maxPitch = 22f
-        val minFaceWidth = 64
+        val maxYaw = 24f
+        val maxPitch = 24f
+        val minFaceWidth = 56
 
         if (abs(face.headEulerAngleY) > maxYaw) return null
         if (abs(face.headEulerAngleX) > maxPitch) return null
@@ -60,51 +48,33 @@ object FaceSignature {
 
         val leftEye = face.getLandmark(FaceLandmark.LEFT_EYE)?.position ?: return null
         val rightEye = face.getLandmark(FaceLandmark.RIGHT_EYE)?.position ?: return null
+        val nose = face.getLandmark(FaceLandmark.NOSE_BASE)?.position ?: return null
+        if (mode == ExtractMode.ENROLL && !isFrontalForEnrollment(face)) {
+            return null
+        }
+
         val centerX = (leftEye.x + rightEye.x) / 2f
         val centerY = (leftEye.y + rightEye.y) / 2f
         val scale = hypot(leftEye.x - rightEye.x, leftEye.y - rightEye.y).coerceAtLeast(1f)
 
-        val values = ArrayList<Float>(signatureFloatCount)
-        for (index in contourTypes.indices) {
-            appendContourPoints(
-                face = face,
-                type = contourTypes[index],
-                expectedPoints = contourPointCounts[index],
-                centerX = centerX,
-                centerY = centerY,
-                scale = scale,
-                out = values,
-            )
+        val values = FloatArray(signatureFloatCount)
+        var index = 0
+        for (type in landmarkTypes) {
+            val pos = when (type) {
+                FaceLandmark.NOSE_BASE -> nose
+                else -> face.getLandmark(type)?.position
+            }
+            if (pos != null) {
+                values[index] = (pos.x - centerX) / scale
+                values[index + 1] = (pos.y - centerY) / scale
+            }
+            index += 2
         }
-        return values.toFloatArray()
-    }
-
-    private fun appendContourPoints(
-        face: Face,
-        type: Int,
-        expectedPoints: Int,
-        centerX: Float,
-        centerY: Float,
-        scale: Float,
-        out: MutableList<Float>,
-    ) {
-        val raw = face.getContour(type)?.points.orEmpty()
-        var used = 0
-        for (point in raw) {
-            if (used >= expectedPoints) break
-            out.add((point.x - centerX) / scale)
-            out.add((point.y - centerY) / scale)
-            used++
-        }
-        repeat(expectedPoints - used) {
-            out.add(0f)
-            out.add(0f)
-        }
+        return values
     }
 
     fun encode(values: FloatArray): String = SIGNATURE_VERSION_PREFIX + values.joinToString(",")
 
-    /** Stores every enrollment capture as its own template (better than a single average). */
     fun encodeAll(samples: List<FloatArray>): String {
         require(samples.isNotEmpty()) { "samples must not be empty" }
         val templates = samples.toMutableList()
@@ -118,51 +88,39 @@ object FaceSignature {
     fun decode(raw: String): FloatArray? = decodeAll(raw).firstOrNull()
 
     fun decodeAll(raw: String): List<FloatArray> {
-        if (raw.startsWith(SIGNATURE_MULTI_PREFIX)) {
-            return raw.removePrefix(SIGNATURE_MULTI_PREFIX)
-                .split(MULTI_SAMPLE_SEPARATOR)
-                .mapNotNull { body ->
-                    if (body.isBlank()) return@mapNotNull null
-                    body.split(",").mapNotNull { it.toFloatOrNull() }.toFloatArray().takeIf { it.isNotEmpty() }
-                }
-        }
-        val body = if (raw.startsWith(SIGNATURE_VERSION_PREFIX)) {
-            raw.removePrefix(SIGNATURE_VERSION_PREFIX)
-        } else {
-            raw
-        }
-        if (body.isBlank()) return emptyList()
-        val single = body.split(",").mapNotNull { it.toFloatOrNull() }.toFloatArray().takeIf { it.isNotEmpty() }
-        return if (single == null) emptyList() else listOf(single)
-    }
-
-    fun isCurrentFormat(raw: String): Boolean {
-        if (raw.startsWith(SIGNATURE_MULTI_PREFIX)) return true
-        if (!raw.startsWith(SIGNATURE_VERSION_PREFIX)) return false
-        // Avoid treating multi templates (2m|) as legacy single — only "2|" not "2m|".
-        return raw.length < 3 || raw[2] != 'm'
-    }
-
-    /**
-     * Splits a flat signature back into ML Kit contour polylines (same order as [contourTypes]).
-     */
-    fun splitIntoContours(signature: FloatArray): List<List<NormPoint>> {
-        if (signature.size < 4) return emptyList()
-        val expectedFloats = contourPointCounts.sum() * 2
-        if (signature.size != expectedFloats) {
-            return listOf(signatureToPointsFallback(signature))
-        }
-        val contours = ArrayList<List<NormPoint>>(contourPointCounts.size)
-        var index = 0
-        for (count in contourPointCounts) {
-            val points = ArrayList<NormPoint>(count)
-            repeat(count) {
-                points.add(NormPoint(signature[index], signature[index + 1]))
-                index += 2
+        when {
+            raw.startsWith(SIGNATURE_MULTI_PREFIX) -> {
+                return raw.removePrefix(SIGNATURE_MULTI_PREFIX)
+                    .split(MULTI_SAMPLE_SEPARATOR)
+                    .mapNotNull { parseBody(it) }
             }
-            contours.add(points)
+
+            raw.startsWith(SIGNATURE_VERSION_PREFIX) -> {
+                return listOfNotNull(parseBody(raw.removePrefix(SIGNATURE_VERSION_PREFIX)))
+            }
+
+            raw.startsWith(LEGACY_MULTI_PREFIX) -> {
+                return raw.removePrefix(LEGACY_MULTI_PREFIX)
+                    .split(MULTI_SAMPLE_SEPARATOR)
+                    .mapNotNull { parseBody(it) }
+            }
+
+            raw.startsWith(LEGACY_VERSION_PREFIX) -> {
+                return listOfNotNull(parseBody(raw.removePrefix(LEGACY_VERSION_PREFIX)))
+            }
         }
-        return contours
+        return listOfNotNull(parseBody(raw))
+    }
+
+    fun isCurrentFormat(raw: String): Boolean =
+        raw.startsWith(SIGNATURE_VERSION_PREFIX) ||
+            raw.startsWith(SIGNATURE_MULTI_PREFIX)
+
+    fun isLegacyFormat(raw: String): Boolean =
+        raw.startsWith(LEGACY_VERSION_PREFIX) || raw.startsWith(LEGACY_MULTI_PREFIX)
+
+    fun splitIntoContours(signature: FloatArray): List<List<NormPoint>> {
+        return listOf(signatureToPoints(signature))
     }
 
     data class NormPoint(val x: Float, val y: Float)
@@ -174,7 +132,7 @@ object FaceSignature {
         }
     }
 
-    private fun signatureToPointsFallback(signature: FloatArray): List<NormPoint> {
+    private fun signatureToPoints(signature: FloatArray): List<NormPoint> {
         val points = ArrayList<NormPoint>(signature.size / 2)
         var i = 0
         while (i + 1 < signature.size) {
@@ -184,9 +142,14 @@ object FaceSignature {
         return points
     }
 
+    private fun parseBody(body: String): FloatArray? {
+        if (body.isBlank()) return null
+        return body.split(",").mapNotNull { it.toFloatOrNull() }.toFloatArray().takeIf { it.isNotEmpty() }
+    }
+
     fun distance(a: FloatArray, b: FloatArray): Float {
         val shared = minOf(a.size, b.size)
-        if (shared < 32) return Float.MAX_VALUE
+        if (shared < 8) return Float.MAX_VALUE
         var sum = 0f
         var used = 0
         var i = 0
@@ -205,7 +168,7 @@ object FaceSignature {
             used += 2
             i += 2
         }
-        if (used < 32) return Float.MAX_VALUE
+        if (used < 8) return Float.MAX_VALUE
         return sqrt(sum / used)
     }
 
@@ -249,25 +212,14 @@ object FaceSignature {
         }
         val margin = secondDistance - bestDistance
         if (margin < MIN_MATCH_MARGIN && bestDistance > STRONG_MATCH_THRESHOLD) {
-            if (bestDistance <= MATCH_THRESHOLD * 0.85f) {
-                return MatchResult(displayName = bestName, ambiguous = false)
-            }
             return MatchResult(displayName = null, ambiguous = true)
         }
         return MatchResult(displayName = bestName, ambiguous = false)
     }
 
-    /** Point counts per [contourTypes] entry (ML Kit face mesh). */
-    private val contourPointCounts = listOf(
-        36, // FACE
-        5, 5, 5, 5, // eyebrows
-        16, 16, // eyes
-        2, 5, // nose
-        11, 9, 9, 11, // lips
-        1, 1, // cheeks
-    )
-
-    private const val SIGNATURE_VERSION_PREFIX = "2|"
-    private const val SIGNATURE_MULTI_PREFIX = "2m|"
+    private const val SIGNATURE_VERSION_PREFIX = "4|"
+    private const val SIGNATURE_MULTI_PREFIX = "4m|"
+    private const val LEGACY_VERSION_PREFIX = "2|"
+    private const val LEGACY_MULTI_PREFIX = "2m|"
     private const val MULTI_SAMPLE_SEPARATOR = "||"
 }

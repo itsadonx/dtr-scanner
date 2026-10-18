@@ -329,9 +329,11 @@ private fun FaceScanContent(
     val enrolled = androidx.compose.runtime.remember(faceProfiles) {
         faceProfiles.toMatchCatalog()
     }
-    val hasLegacy = faceProfiles.any { !FaceSignature.isCurrentFormat(it.signature) }
+    val hasLegacy = faceProfiles.any {
+        FaceSignature.isLegacyFormat(it.signature) || !FaceSignature.isCurrentFormat(it.signature)
+    }
     val status = when {
-        hasLegacy && enrolled.isEmpty() -> "Re-enroll everyone in Settings."
+        hasLegacy && enrolled.isEmpty() -> "Re-register everyone in Settings (face format updated)."
         enrolled.isEmpty() -> "Register faces in Settings first (${faceProfiles.size} on file, 0 templates)."
         else -> faceStatus
     }
