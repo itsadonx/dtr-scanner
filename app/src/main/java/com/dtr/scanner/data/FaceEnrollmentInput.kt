@@ -5,4 +5,5 @@ data class FaceEnrollmentInput(
     val area: String,
     val businessUnit: String,
     val signatures: List<FloatArray>,
+    val templateJpegs: List<ByteArray> = emptyList(),
 )

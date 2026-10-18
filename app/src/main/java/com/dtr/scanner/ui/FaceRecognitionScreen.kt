@@ -26,6 +26,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.dtr.scanner.camera.FaceAnalyzer
 import com.dtr.scanner.face.FaceLivenessTracker
+import com.dtr.scanner.face.FaceCapture
 import com.dtr.scanner.face.FaceSignature.ExtractMode
 import com.dtr.scanner.face.FaceLivenessTracker.Mode as LivenessMode
 import java.util.concurrent.Executors
@@ -34,6 +35,8 @@ import java.util.concurrent.Executors
 fun FaceRecognitionScreen(
     statusText: String,
     onFaceSignature: (FloatArray) -> Unit,
+    onFaceCapture: ((FaceCapture) -> Unit)? = null,
+    captureFaceThumbnail: Boolean = false,
     onLivenessHint: (String) -> Unit = {},
     livenessSessionKey: Int = 0,
     consumeLivenessAfterCapture: Boolean = false,
@@ -54,17 +57,21 @@ fun FaceRecognitionScreen(
         CameraSelector.LENS_FACING_BACK
     }
 
-    val faceAnalyzer = remember(livenessTracker, livenessMode, extractMode) {
+    val faceAnalyzer = remember(livenessTracker, livenessMode, extractMode, captureFaceThumbnail) {
         FaceAnalyzer(
             livenessTracker = livenessTracker,
             onLivenessHint = { hint ->
                 liveHint = hint
                 onLivenessHint(hint)
             },
-            onLiveFaceSignature = onFaceSignature,
+            onLiveFaceCapture = { capture ->
+                onFaceCapture?.invoke(capture) ?: onFaceSignature(capture.signature)
+            },
             consumeLivenessAfterCapture = consumeLivenessAfterCapture,
             extractMode = extractMode,
             livenessMode = livenessMode,
+            captureFaceThumbnail = captureFaceThumbnail,
+            mirrorForFrontCamera = useFrontCamera,
         )
     }
 

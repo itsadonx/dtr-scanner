@@ -14,5 +14,7 @@ data class FaceProfile(
     val businessUnit: String = "",
     /** Comma-separated normalized landmark coordinates. */
     val signature: String,
+    /** Absolute paths to saved JPEG face crops, separated by || */
+    val templateImagePaths: String = "",
     val enrolledAtEpochMs: Long,
 )

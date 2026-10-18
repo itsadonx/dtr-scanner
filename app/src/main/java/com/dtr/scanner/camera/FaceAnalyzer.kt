@@ -3,6 +3,7 @@ package com.dtr.scanner.camera
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
+import com.dtr.scanner.face.FaceCapture
 import com.dtr.scanner.face.FaceLivenessTracker
 import com.dtr.scanner.face.FaceSignature
 import com.dtr.scanner.face.FaceSignature.ExtractMode
@@ -13,10 +14,12 @@ import com.google.mlkit.vision.face.FaceDetectorOptions
 class FaceAnalyzer(
     private val livenessTracker: FaceLivenessTracker,
     private val onLivenessHint: (String) -> Unit,
-    private val onLiveFaceSignature: (FloatArray) -> Unit,
+    private val onLiveFaceCapture: (FaceCapture) -> Unit,
     private val consumeLivenessAfterCapture: Boolean = false,
     private val extractMode: ExtractMode = ExtractMode.MATCH,
     private val livenessMode: FaceLivenessTracker.Mode = FaceLivenessTracker.Mode.CHECK_IN,
+    private val captureFaceThumbnail: Boolean = false,
+    private val mirrorForFrontCamera: Boolean = true,
 ) : ImageAnalysis.Analyzer {
 
     init {
@@ -70,7 +73,16 @@ class FaceAnalyzer(
                 val now = System.currentTimeMillis()
                 if (now - lastEmitTimeMs < EMIT_COOLDOWN_MS) return@addOnSuccessListener
                 lastEmitTimeMs = now
-                onLiveFaceSignature(signature)
+                val thumbnail = if (captureFaceThumbnail) {
+                    FaceThumbnailCropper.cropToJpeg(
+                        imageProxy = imageProxy,
+                        face = face,
+                        mirrorForFrontCamera = mirrorForFrontCamera,
+                    )
+                } else {
+                    null
+                }
+                onLiveFaceCapture(FaceCapture(signature, thumbnail))
                 if (consumeLivenessAfterCapture) {
                     livenessTracker.consumeVerification()
                 }

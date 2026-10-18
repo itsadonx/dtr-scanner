@@ -15,4 +15,7 @@ interface FaceProfileDao {
 
     @Query("DELETE FROM face_profiles WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("UPDATE face_profiles SET templateImagePaths = :paths WHERE id = :id")
+    suspend fun updateTemplatePaths(id: Long, paths: String)
 }

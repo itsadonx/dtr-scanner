@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.dtr.scanner.data.FaceEnrollmentInput
 import com.dtr.scanner.data.FaceProfile
+import com.dtr.scanner.data.FaceTemplateStore
 import com.dtr.scanner.face.FaceLivenessTracker.Mode as LivenessMode
 import com.dtr.scanner.face.FaceSignature
 import com.dtr.scanner.face.FaceSignature.ExtractMode
@@ -60,6 +61,7 @@ fun PeopleScreen(
     var area by remember { mutableStateOf("") }
     var businessUnit by remember { mutableStateOf("") }
     var samples by remember(enrollLivenessSession) { mutableStateOf(listOf<FloatArray>()) }
+    var templateJpegs by remember(enrollLivenessSession) { mutableStateOf(listOf<ByteArray>()) }
     var templatesDialogProfile by remember { mutableStateOf<FaceProfile?>(null) }
 
     LazyColumn(
@@ -92,14 +94,20 @@ fun PeopleScreen(
                         onLivenessHint = onLivenessHint,
                         extractMode = ExtractMode.ENROLL,
                         livenessMode = LivenessMode.ENROLLMENT,
-                        onFaceSignature = { signature ->
+                        captureFaceThumbnail = true,
+                        onFaceCapture = { capture ->
                             if (samples.size >= FaceSignature.ENROLLMENT_SAMPLES) return@FaceRecognitionScreen
+                            val signature = capture.signature
                             val consistent = samples.isEmpty() ||
                                 FaceSignature.distance(samples.last(), signature) < 0.14f
                             if (!consistent) return@FaceRecognitionScreen
                             samples = samples + signature
+                            capture.thumbnailJpeg?.let { jpeg ->
+                                templateJpegs = templateJpegs + jpeg
+                            }
                             onFaceSampleProgress(samples.size, FaceSignature.ENROLLMENT_SAMPLES)
                         },
+                        onFaceSignature = {},
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(280.dp)
@@ -139,12 +147,14 @@ fun PeopleScreen(
                                     area = area,
                                     businessUnit = businessUnit,
                                     signatures = samples,
+                                    templateJpegs = templateJpegs,
                                 )
                                 onEnroll(input) {
                                     fullName = ""
                                     area = ""
                                     businessUnit = ""
                                     samples = emptyList()
+                                    templateJpegs = emptyList()
                                 }
                             }
                         },
@@ -200,6 +210,9 @@ private fun FaceTemplatesDialog(
     onDismiss: () -> Unit,
 ) {
     val templates = remember(profile.signature) { FaceSignature.decodeAll(profile.signature) }
+    val imagePaths = remember(profile.templateImagePaths) {
+        FaceTemplateStore.decodePaths(profile.templateImagePaths)
+    }
     val enrolledAt = Instant.ofEpochMilli(profile.enrolledAtEpochMs)
         .atZone(ZoneId.systemDefault())
         .format(enrolledFormatter)
@@ -223,6 +236,8 @@ private fun FaceTemplatesDialog(
                             FaceTemplatePreview(
                                 signature = template,
                                 label = FaceSignature.templateLabel(index, templates.size),
+                                imagePath = imagePaths.getOrNull(index)
+                                    ?: imagePaths.lastOrNull(),
                             )
                         }
                     }

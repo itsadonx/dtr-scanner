@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.dtr.scanner.data.AppDatabase
 import com.dtr.scanner.data.FaceEnrollmentInput
 import com.dtr.scanner.data.FaceProfile
+import com.dtr.scanner.data.FaceTemplateStore
 import com.dtr.scanner.data.ScanRecord
 import com.dtr.scanner.data.ScanType
 import com.dtr.scanner.face.FaceSignature
@@ -65,6 +66,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         val trimmedName = input.fullName.trim()
         if (trimmedName.isEmpty() || input.signatures.isEmpty()) return
         viewModelScope.launch {
+            val app = getApplication<Application>()
             val profile = FaceProfile(
                 fullName = trimmedName,
                 area = input.area.trim(),
@@ -73,12 +75,22 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 enrolledAtEpochMs = System.currentTimeMillis(),
             )
             val id = faceDao.insert(profile)
-            onSaved(profile.copy(id = id))
+            val imagePaths = FaceTemplateStore.saveTemplateJpegs(
+                context = app,
+                profileId = id,
+                jpegs = input.templateJpegs,
+            )
+            val saved = profile.copy(id = id, templateImagePaths = imagePaths)
+            if (imagePaths.isNotEmpty()) {
+                faceDao.updateTemplatePaths(id, imagePaths)
+            }
+            onSaved(saved)
         }
     }
 
     fun deleteFaceProfile(id: Long) {
         viewModelScope.launch {
+            FaceTemplateStore.deleteProfileImages(getApplication(), id)
             faceDao.deleteById(id)
         }
     }
