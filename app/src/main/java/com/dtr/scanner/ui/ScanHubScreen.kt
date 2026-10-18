@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.dtr.scanner.data.FaceProfile
 import com.dtr.scanner.face.FaceSignature
-import com.dtr.scanner.face.FaceSignature.ExtractMode
 
 private const val MODE_QR = 0
 private const val MODE_FACE = 1
@@ -88,25 +87,16 @@ fun ScanHubScreen(
 
                     else -> faceStatus
                 }
-                FaceRecognitionScreen(
+                FaceCheckInScanner(
+                    enrolled = enrolled,
+                    hasLegacyProfiles = hasLegacyProfiles,
                     statusText = status,
                     livenessSessionKey = faceLivenessSession,
                     onLivenessHint = onLivenessHint,
-                    consumeLivenessAfterCapture = true,
-                    extractMode = ExtractMode.MATCH,
-                    onFaceSignature = { probe ->
-                        if (hasLegacyProfiles && enrolled.isEmpty()) {
-                            onNeedsReEnroll()
-                            return@FaceRecognitionScreen
-                        }
-                        if (enrolled.isEmpty()) return@FaceRecognitionScreen
-                        val result = FaceSignature.match(probe, enrolled)
-                        when {
-                            result.ambiguous -> onFaceAmbiguous()
-                            result.displayName != null -> onFaceRecognized(result.displayName)
-                            else -> onFaceUnknown()
-                        }
-                    },
+                    onRecognized = onFaceRecognized,
+                    onFaceUnknown = onFaceUnknown,
+                    onFaceAmbiguous = onFaceAmbiguous,
+                    onNeedsReEnroll = onNeedsReEnroll,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

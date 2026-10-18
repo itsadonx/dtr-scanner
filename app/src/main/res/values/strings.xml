@@ -32,4 +32,7 @@
     <string name="app_version_label">App version %1$s (build %2$d)</string>
     <string name="scan_qr_instruction">Position the QR code within the frame.</string>
     <string name="scan_face_instruction">Align your face within the frame.</string>
+    <string name="face_scan_not_recognized">Not recognized</string>
+    <string name="face_scan_success_cd">Face recognized</string>
+    <string name="face_scan_failed_cd">Face not recognized</string>
 </resources>

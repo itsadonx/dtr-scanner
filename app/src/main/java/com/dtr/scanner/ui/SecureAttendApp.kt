@@ -31,7 +31,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dtr.scanner.R
 import com.dtr.scanner.ScanViewModel
 import com.dtr.scanner.face.FaceSignature
-import com.dtr.scanner.face.FaceSignature.ExtractMode
 import com.dtr.scanner.ui.components.SecureTopBar
 import com.dtr.scanner.ui.dashboard.DashboardScreen
 import com.dtr.scanner.ui.login.LoginScreen
@@ -128,9 +127,11 @@ fun SecureAttendApp() {
                     },
                     onFaceUnknown = {
                         faceStatus = "Not recognized — enroll on Settings."
+                        faceLivenessSession++
                     },
                     onFaceAmbiguous = {
                         faceStatus = "Look straight at the camera and try again."
+                        faceLivenessSession++
                     },
                     onNeedsReEnroll = {
                         faceStatus = "Re-enroll faces in Settings (profiles upgraded)."
@@ -305,25 +306,16 @@ private fun FaceScanContent(
         else -> faceStatus
     }
 
-    FaceRecognitionScreen(
+    FaceCheckInScanner(
+        enrolled = enrolled,
+        hasLegacyProfiles = hasLegacy,
         statusText = status,
         livenessSessionKey = faceLivenessSession,
         onLivenessHint = onLivenessHint,
-        consumeLivenessAfterCapture = true,
-        extractMode = ExtractMode.MATCH,
-        onFaceSignature = { probe ->
-            if (hasLegacy && enrolled.isEmpty()) {
-                onNeedsReEnroll()
-                return@FaceRecognitionScreen
-            }
-            if (enrolled.isEmpty()) return@FaceRecognitionScreen
-            val result = FaceSignature.match(probe, enrolled)
-            when {
-                result.displayName != null -> onRecognized(result.displayName)
-                result.ambiguous -> onFaceAmbiguous()
-                else -> onFaceUnknown()
-            }
-        },
+        onRecognized = onRecognized,
+        onFaceUnknown = onFaceUnknown,
+        onFaceAmbiguous = onFaceAmbiguous,
+        onNeedsReEnroll = onNeedsReEnroll,
         modifier = modifier,
     )
 }
