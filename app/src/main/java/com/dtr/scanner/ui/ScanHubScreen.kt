@@ -17,7 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.dtr.scanner.data.FaceProfile
-import com.dtr.scanner.face.FaceProfileMatching.toMatchCatalog
+import com.dtr.scanner.face.toMatchCatalog
 import com.dtr.scanner.face.FaceSignature
 
 private const val MODE_QR = 0

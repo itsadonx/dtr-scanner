@@ -31,7 +31,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dtr.scanner.R
 import com.dtr.scanner.ScanViewModel
 import com.dtr.scanner.data.FaceEnrollmentInput
-import com.dtr.scanner.face.FaceProfileMatching.toMatchCatalog
+import com.dtr.scanner.face.toMatchCatalog
 import com.dtr.scanner.face.FaceSignature
 import com.dtr.scanner.ui.components.SecureTopBar
 import com.dtr.scanner.ui.dashboard.DashboardScreen
