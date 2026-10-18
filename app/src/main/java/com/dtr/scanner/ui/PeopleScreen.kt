@@ -63,7 +63,7 @@ fun PeopleScreen(
     var fullName by rememberSaveable { mutableStateOf("") }
     var area by rememberSaveable { mutableStateOf("") }
     var businessUnit by rememberSaveable { mutableStateOf("") }
-    var showCaptureCamera by rememberSaveable { mutableStateOf(false) }
+    var showCaptureCamera by rememberSaveable(enrollLivenessSession) { mutableStateOf(false) }
     var samples by remember(enrollLivenessSession) { mutableStateOf(listOf<FloatArray>()) }
     var templateJpegs by remember(enrollLivenessSession) { mutableStateOf(listOf<ByteArray>()) }
     var templatesDialogProfile by remember { mutableStateOf<FaceProfile?>(null) }
@@ -133,8 +133,8 @@ fun PeopleScreen(
                     }
                     if (showCaptureCamera) {
                         Text(
-                            text = "Blink, turn left/right, nod up/down, then hold still for " +
-                                "${FaceSignature.ENROLLMENT_SAMPLES} samples.",
+                            text = "After the live check, look straight at the camera for " +
+                                "${FaceSignature.ENROLLMENT_SAMPLES} samples (blink/head motion first).",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),

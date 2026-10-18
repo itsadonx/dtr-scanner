@@ -88,7 +88,7 @@ private fun ColumnTopText(instruction: String, statusLine: String?) {
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             val primary = statusLine?.takeIf { it.isNotBlank() } ?: instruction

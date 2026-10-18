@@ -42,6 +42,10 @@ object FaceSignature {
         MATCH,
     }
 
+    fun isFrontalForEnrollment(face: Face): Boolean {
+        return abs(face.headEulerAngleY) <= 14f && abs(face.headEulerAngleX) <= 14f
+    }
+
     fun extract(face: Face, mode: ExtractMode = ExtractMode.MATCH): FloatArray? {
         // Use the same pose bounds for enroll and check-in so stored templates match live probes.
         val maxYaw = 22f
@@ -153,13 +157,14 @@ object FaceSignature {
     }
 
     fun distance(a: FloatArray, b: FloatArray): Float {
-        if (a.size != b.size) return Float.MAX_VALUE
+        val shared = minOf(a.size, b.size)
+        if (shared < 32) return Float.MAX_VALUE
         var sum = 0f
-        for (i in a.indices) {
+        for (i in 0 until shared) {
             val delta = a[i] - b[i]
             sum += delta * delta
         }
-        return sqrt(sum / a.size)
+        return sqrt(sum / shared)
     }
 
     fun average(samples: List<FloatArray>): FloatArray? {
@@ -202,6 +207,9 @@ object FaceSignature {
         }
         val margin = secondDistance - bestDistance
         if (margin < MIN_MATCH_MARGIN && bestDistance > STRONG_MATCH_THRESHOLD) {
+            if (bestDistance <= MATCH_THRESHOLD * 0.85f) {
+                return MatchResult(displayName = bestName, ambiguous = false)
+            }
             return MatchResult(displayName = null, ambiguous = true)
         }
         return MatchResult(displayName = bestName, ambiguous = false)

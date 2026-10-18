@@ -73,6 +73,10 @@ class FaceAnalyzer(
                     publishHint("Face the camera and move a little closer.")
                     return@addOnSuccessListener
                 }
+                if (extractMode == ExtractMode.ENROLL && !FaceSignature.isFrontalForEnrollment(face)) {
+                    publishHint("Look straight at the camera to record this sample.")
+                    return@addOnSuccessListener
+                }
                 val now = System.currentTimeMillis()
                 if (now - lastEmitTimeMs < EMIT_COOLDOWN_MS) return@addOnSuccessListener
                 lastEmitTimeMs = now
