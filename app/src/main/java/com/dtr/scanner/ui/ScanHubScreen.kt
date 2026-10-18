@@ -103,8 +103,8 @@ fun ScanHubScreen(
                         if (enrolled.isEmpty()) return@FaceRecognitionScreen
                         val result = FaceSignature.match(probe, enrolled)
                         when {
-                            result.displayName != null -> onFaceRecognized(result.displayName)
                             result.ambiguous -> onFaceAmbiguous()
+                            result.displayName != null -> onFaceRecognized(result.displayName)
                             else -> onFaceUnknown()
                         }
                     },

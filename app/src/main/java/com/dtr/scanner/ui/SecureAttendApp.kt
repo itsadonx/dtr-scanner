@@ -19,16 +19,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dtr.scanner.R
 import com.dtr.scanner.ScanViewModel
-import com.dtr.scanner.data.FaceProfile
 import com.dtr.scanner.face.FaceSignature
 import com.dtr.scanner.face.FaceSignature.ExtractMode
 import com.dtr.scanner.ui.components.SecureTopBar
@@ -317,8 +318,8 @@ private fun FaceScanContent(
             }
             if (enrolled.isEmpty()) return@FaceRecognitionScreen
             when (val result = FaceSignature.match(probe, enrolled)) {
-                result.displayName != null -> onRecognized(result.displayName)
                 result.ambiguous -> onFaceAmbiguous()
+                result.displayName != null -> onRecognized(result.displayName)
                 else -> onFaceUnknown()
             }
         },
