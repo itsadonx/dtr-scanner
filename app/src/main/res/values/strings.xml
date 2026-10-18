@@ -1,4 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">DTR Scanner</string>
+    <string name="app_name">SecureAttend</string>
+    <string name="app_subtitle">Face &amp; QR Attendance System</string>
+    <string name="brand_secure">Secure</string>
+    <string name="brand_attend">Attend</string>
+    <string name="developed_by">Developed by: ASystems</string>
+    <string name="authorized_personnel">Authorized Security Personnel Only</string>
+    <string name="guard_login_title">Guard Login</string>
+    <string name="guard_login_subtitle">Please enter your credentials to continue.</string>
+    <string name="guard_id_label">Guard ID</string>
+    <string name="password_label">Password</string>
+    <string name="login_button">Login</string>
+    <string name="guard_role">Security Guard</string>
+    <string name="guard_location">Main Gate</string>
+    <string name="local_time">Local time</string>
+    <string name="scan_qr_title">Scan QR</string>
+    <string name="scan_face_title">Scan Face</string>
+    <string name="employee_attendance">Employee Attendance</string>
+    <string name="todays_activity">Today\'s Activity</string>
+    <string name="total_scans">Total Scans</string>
+    <string name="qr_scans">QR Scans</string>
+    <string name="face_scans">Face Scans</string>
+    <string name="recent_scans">Recent Scans</string>
+    <string name="no_recent_scans">No scans yet today.</string>
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_history">History</string>
+    <string name="nav_settings">Settings</string>
+    <string name="settings_face_enrollment">Face enrollment</string>
+    <string name="clear_all_history">Clear all attendance history</string>
+    <string name="scan_qr_instruction">Position the QR code within the frame.</string>
+    <string name="scan_face_instruction">Align your face within the frame.</string>
 </resources>

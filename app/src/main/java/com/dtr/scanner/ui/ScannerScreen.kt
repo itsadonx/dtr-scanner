@@ -8,11 +8,10 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.dtr.scanner.R
+import com.dtr.scanner.ui.components.ScanFrameOverlay
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -85,18 +84,9 @@ fun ScannerScreen(
             },
         )
 
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(16.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-            shape = MaterialTheme.shapes.medium,
-        ) {
-            Text(
-                text = "Point the camera at a QR code",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
+        ScanFrameOverlay(
+            instruction = stringResource(R.string.scan_qr_instruction),
+            modifier = Modifier.align(Alignment.Center),
+        )
     }
 }

@@ -1,20 +1,29 @@
 package com.dtr.scanner.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
+import com.dtr.scanner.ui.components.DevelopedByFooter
+import com.dtr.scanner.ui.theme.RoyalBlue
+import com.dtr.scanner.ui.theme.ScreenBackground
+import com.dtr.scanner.ui.theme.SuccessGreen
+import com.dtr.scanner.ui.theme.SuccessGreenBg
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,12 +67,21 @@ fun HistoryScreen(
     }
 
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .background(ScreenBackground),
         contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(records, key = { it.id }) { record ->
-            ScanRecordRow(record = record, onDelete = onDelete)
+            ScanRecordRow(
+                record = record,
+                onDelete = onDelete,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+        item {
+            DevelopedByFooter(modifier = Modifier.padding(bottom = 24.dp))
         }
     }
 }
@@ -72,6 +90,7 @@ fun HistoryScreen(
 private fun ScanRecordRow(
     record: ScanRecord,
     onDelete: (Long) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val localTime = Instant.ofEpochMilli(record.scannedAtEpochMs)
         .atZone(ZoneId.systemDefault())
@@ -79,12 +98,16 @@ private fun ScanRecordRow(
 
     val typeLabel = if (record.scanType == ScanType.FACE) "Face" else "QR"
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+    ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 text = "$localTime · $typeLabel",
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
+                color = RoyalBlue,
             )
             Text(
                 text = record.content,
