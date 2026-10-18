@@ -30,6 +30,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dtr.scanner.R
 import com.dtr.scanner.ScanViewModel
+import com.dtr.scanner.data.FaceEnrollmentInput
+import com.dtr.scanner.face.FaceProfileMatching.toMatchCatalog
 import com.dtr.scanner.face.FaceSignature
 import com.dtr.scanner.ui.components.SecureTopBar
 import com.dtr.scanner.ui.dashboard.DashboardScreen
@@ -115,23 +117,20 @@ fun SecureAttendApp() {
                     faceLivenessSession = faceLivenessSession,
                     onLivenessHint = { faceStatus = it },
                     onRecognized = { name ->
-                        if (viewModel.saveFaceRecognition(name)) {
-                            faceLivenessSession++
-                            Toast.makeText(
-                                context,
-                                "$name checked in at ${formatNow()}",
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                            activeScan = null
+                        val saved = viewModel.saveFaceRecognition(name)
+                        val message = if (saved) {
+                            "$name checked in at ${formatNow()}"
+                        } else {
+                            "$name recognized — ready for next scan"
                         }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     },
+                    onRescanReady = { faceLivenessSession++ },
                     onFaceUnknown = {
-                        faceStatus = "Not recognized — enroll on Settings."
-                        faceLivenessSession++
+                        faceStatus = "Not recognized — register on Settings."
                     },
                     onFaceAmbiguous = {
-                        faceStatus = "Look straight at the camera and try again."
-                        faceLivenessSession++
+                        faceStatus = "Look at the camera and try again."
                     },
                     onNeedsReEnroll = {
                         faceStatus = "Re-enroll faces in Settings (profiles upgraded)."
@@ -229,11 +228,17 @@ fun SecureAttendApp() {
                         profiles = faceProfiles,
                         enrollStatus = enrollStatus,
                         enrollLivenessSession = enrollLivenessSession,
-                        onEnroll = { name, signatures ->
-                            viewModel.enrollFace(name, signatures)
-                            enrollLivenessSession++
-                            enrollStatus = "Saved $name."
-                            Toast.makeText(context, "Enrolled $name", Toast.LENGTH_SHORT).show()
+                        onEnroll = { input, onSaved ->
+                            viewModel.enrollFace(input) { saved ->
+                                enrollLivenessSession++
+                                enrollStatus = "Saved ID ${saved.id}: ${saved.fullName}."
+                                Toast.makeText(
+                                    context,
+                                    "Registered ID ${saved.id}: ${saved.fullName}",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                                onSaved(saved)
+                            }
                         },
                         onDeleteProfile = viewModel::deleteFaceProfile,
                         onFaceSampleProgress = { captured, total ->
@@ -291,18 +296,16 @@ private fun FaceScanContent(
     onFaceUnknown: () -> Unit,
     onFaceAmbiguous: () -> Unit,
     onNeedsReEnroll: () -> Unit,
+    onRescanReady: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val enrolled = androidx.compose.runtime.remember(faceProfiles) {
-        faceProfiles.flatMap { profile ->
-            if (!FaceSignature.isCurrentFormat(profile.signature)) return@flatMap emptyList()
-            FaceSignature.decodeAll(profile.signature).map { profile.displayName to it }
-        }
+        faceProfiles.toMatchCatalog()
     }
     val hasLegacy = faceProfiles.any { !FaceSignature.isCurrentFormat(it.signature) }
     val status = when {
         hasLegacy && enrolled.isEmpty() -> "Re-enroll everyone in Settings."
-        enrolled.isEmpty() -> "Enroll faces in Settings first."
+        enrolled.isEmpty() -> "Register faces in Settings first (${faceProfiles.size} on file, 0 templates)."
         else -> faceStatus
     }
 
@@ -316,6 +319,7 @@ private fun FaceScanContent(
         onFaceUnknown = onFaceUnknown,
         onFaceAmbiguous = onFaceAmbiguous,
         onNeedsReEnroll = onNeedsReEnroll,
+        onRescanReady = onRescanReady,
         modifier = modifier,
     )
 }

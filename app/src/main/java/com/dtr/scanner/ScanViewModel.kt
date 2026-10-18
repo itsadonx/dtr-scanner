@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dtr.scanner.data.AppDatabase
+import com.dtr.scanner.data.FaceEnrollmentInput
 import com.dtr.scanner.data.FaceProfile
 import com.dtr.scanner.data.ScanRecord
 import com.dtr.scanner.data.ScanType
@@ -57,17 +58,22 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         return true
     }
 
-    fun enrollFace(displayName: String, signatures: List<FloatArray>) {
-        val trimmed = displayName.trim()
-        if (trimmed.isEmpty() || signatures.isEmpty()) return
+    fun enrollFace(
+        input: FaceEnrollmentInput,
+        onSaved: (FaceProfile) -> Unit = {},
+    ) {
+        val trimmedName = input.fullName.trim()
+        if (trimmedName.isEmpty() || input.signatures.isEmpty()) return
         viewModelScope.launch {
-            faceDao.insert(
-                FaceProfile(
-                    displayName = trimmed,
-                    signature = FaceSignature.encodeAll(signatures),
-                    enrolledAtEpochMs = System.currentTimeMillis(),
-                ),
+            val profile = FaceProfile(
+                fullName = trimmedName,
+                area = input.area.trim(),
+                businessUnit = input.businessUnit.trim(),
+                signature = FaceSignature.encodeAll(input.signatures),
+                enrolledAtEpochMs = System.currentTimeMillis(),
             )
+            val id = faceDao.insert(profile)
+            onSaved(profile.copy(id = id))
         }
     }
 

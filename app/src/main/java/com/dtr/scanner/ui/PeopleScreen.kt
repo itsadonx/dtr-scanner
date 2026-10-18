@@ -3,14 +3,19 @@ package com.dtr.scanner.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -18,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,10 +31,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.dtr.scanner.data.FaceEnrollmentInput
 import com.dtr.scanner.data.FaceProfile
 import com.dtr.scanner.face.FaceLivenessTracker.Mode as LivenessMode
 import com.dtr.scanner.face.FaceSignature
 import com.dtr.scanner.face.FaceSignature.ExtractMode
+import com.dtr.scanner.ui.components.FaceTemplatePreview
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -40,7 +48,7 @@ private val enrolledFormatter: DateTimeFormatter =
 fun PeopleScreen(
     profiles: List<FaceProfile>,
     enrollStatus: String,
-    onEnroll: (displayName: String, signatures: List<FloatArray>) -> Unit,
+    onEnroll: (FaceEnrollmentInput, onSaved: (FaceProfile) -> Unit) -> Unit,
     onDeleteProfile: (Long) -> Unit,
     onFaceSampleProgress: (Int, Int) -> Unit = { _, _ -> },
     onLivenessHint: (String) -> Unit = {},
@@ -48,8 +56,11 @@ fun PeopleScreen(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
-    var name by remember { mutableStateOf("") }
+    var fullName by remember { mutableStateOf("") }
+    var area by remember { mutableStateOf("") }
+    var businessUnit by remember { mutableStateOf("") }
     var samples by remember(enrollLivenessSession) { mutableStateOf(listOf<FloatArray>()) }
+    var templatesDialogProfile by remember { mutableStateOf<FaceProfile?>(null) }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -64,12 +75,13 @@ fun PeopleScreen(
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        text = "Enroll a face",
+                        text = "Register face",
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = "Blink, turn left/right, nod up/down, then hold still while we capture " +
-                            "${FaceSignature.ENROLLMENT_SAMPLES} face samples for this person.",
+                        text = "Employee ID is assigned automatically when you save. " +
+                            "Blink, turn left/right, nod up/down, then hold still for " +
+                            "${FaceSignature.ENROLLMENT_SAMPLES} samples.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
@@ -83,7 +95,7 @@ fun PeopleScreen(
                         onFaceSignature = { signature ->
                             if (samples.size >= FaceSignature.ENROLLMENT_SAMPLES) return@FaceRecognitionScreen
                             val consistent = samples.isEmpty() ||
-                                FaceSignature.distance(samples.last(), signature) < 0.11f
+                                FaceSignature.distance(samples.last(), signature) < 0.14f
                             if (!consistent) return@FaceRecognitionScreen
                             samples = samples + signature
                             onFaceSampleProgress(samples.size, FaceSignature.ENROLLMENT_SAMPLES)
@@ -94,25 +106,52 @@ fun PeopleScreen(
                             .padding(bottom = 8.dp),
                     )
                     OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text("Name") },
+                        value = fullName,
+                        onValueChange = { fullName = it },
+                        label = { Text("Full name") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    OutlinedTextField(
+                        value = area,
+                        onValueChange = { area = it },
+                        label = { Text("Area") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                    )
+                    OutlinedTextField(
+                        value = businessUnit,
+                        onValueChange = { businessUnit = it },
+                        label = { Text("Business unit (BU)") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                    )
                     Button(
                         onClick = {
-                            val trimmed = name.trim()
+                            val trimmed = fullName.trim()
                             if (trimmed.isNotEmpty() && samples.size >= FaceSignature.ENROLLMENT_SAMPLES) {
-                                onEnroll(trimmed, samples)
-                                name = ""
-                                samples = emptyList()
+                                val input = FaceEnrollmentInput(
+                                    fullName = trimmed,
+                                    area = area,
+                                    businessUnit = businessUnit,
+                                    signatures = samples,
+                                )
+                                onEnroll(input) {
+                                    fullName = ""
+                                    area = ""
+                                    businessUnit = ""
+                                    samples = emptyList()
+                                }
                             }
                         },
-                        enabled = name.isNotBlank() && samples.size >= FaceSignature.ENROLLMENT_SAMPLES,
+                        enabled = fullName.isNotBlank() && samples.size >= FaceSignature.ENROLLMENT_SAMPLES,
                         modifier = Modifier.padding(top = 8.dp),
                     ) {
-                        Text("Save face profile")
+                        Text("Save registration")
                     }
                 }
             }
@@ -120,7 +159,7 @@ fun PeopleScreen(
 
         item {
             Text(
-                text = "Enrolled people (${profiles.size})",
+                text = "Registered people (${profiles.size})",
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
@@ -129,7 +168,7 @@ fun PeopleScreen(
         if (profiles.isEmpty()) {
             item {
                 Text(
-                    text = "No faces enrolled yet. Add at least one person before using face check-in.",
+                    text = "No faces registered yet. Add at least one person before using face check-in.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -140,17 +179,69 @@ fun PeopleScreen(
                 FaceProfileRow(
                     profile = profile,
                     onDelete = onDeleteProfile,
+                    onViewTemplates = { templatesDialogProfile = profile },
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
         }
     }
+
+    templatesDialogProfile?.let { profile ->
+        FaceTemplatesDialog(
+            profile = profile,
+            onDismiss = { templatesDialogProfile = null },
+        )
+    }
+}
+
+@Composable
+private fun FaceTemplatesDialog(
+    profile: FaceProfile,
+    onDismiss: () -> Unit,
+) {
+    val templates = remember(profile.signature) { FaceSignature.decodeAll(profile.signature) }
+    val enrolledAt = Instant.ofEpochMilli(profile.enrolledAtEpochMs)
+        .atZone(ZoneId.systemDefault())
+        .format(enrolledFormatter)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Face templates — ${profile.fullName}") },
+        text = {
+            Column {
+                Text(
+                    text = "ID ${profile.id} · ${profile.area.ifBlank { "—" }} · " +
+                        "BU ${profile.businessUnit.ifBlank { "—" }} · Registered $enrolledAt",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 12.dp),
+                )
+                if (templates.isEmpty()) {
+                    Text("No readable templates. Re-register this person.")
+                } else {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        itemsIndexed(templates) { index, template ->
+                            FaceTemplatePreview(
+                                signature = template,
+                                label = "Template ${index + 1}",
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+    )
 }
 
 @Composable
 private fun FaceProfileRow(
     profile: FaceProfile,
     onDelete: (Long) -> Unit,
+    onViewTemplates: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val enrolledAt = Instant.ofEpochMilli(profile.enrolledAtEpochMs)
@@ -161,22 +252,35 @@ private fun FaceProfileRow(
 
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text(text = profile.displayName, style = MaterialTheme.typography.titleMedium)
             Text(
-                text = "Enrolled $enrolledAt · $templateCount face template(s)",
+                text = "ID ${profile.id} · ${profile.fullName}",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = "Area: ${profile.area.ifBlank { "—" }} · BU: ${profile.businessUnit.ifBlank { "—" }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "Registered $enrolledAt · $templateCount template(s)",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (needsReEnroll) {
                 Text(
-                    text = "Re-enroll this person for improved matching.",
+                    text = "Re-register this person for improved matching.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
-            IconButton(onClick = { onDelete(profile.id) }) {
-                Icon(Icons.Default.Delete, contentDescription = "Remove profile")
+            Row {
+                IconButton(onClick = onViewTemplates) {
+                    Icon(Icons.Default.Visibility, contentDescription = "View face templates")
+                }
+                IconButton(onClick = { onDelete(profile.id) }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Remove profile")
+                }
             }
         }
     }

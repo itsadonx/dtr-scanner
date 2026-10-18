@@ -1,5 +1,6 @@
 package com.dtr.scanner.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -7,7 +8,10 @@ import androidx.room.PrimaryKey
 data class FaceProfile(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val displayName: String,
+    @ColumnInfo(name = "displayName")
+    val fullName: String,
+    val area: String = "",
+    val businessUnit: String = "",
     /** Comma-separated normalized landmark coordinates. */
     val signature: String,
     val enrolledAtEpochMs: Long,

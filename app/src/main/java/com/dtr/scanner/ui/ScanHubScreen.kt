@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.dtr.scanner.data.FaceProfile
+import com.dtr.scanner.face.FaceProfileMatching.toMatchCatalog
 import com.dtr.scanner.face.FaceSignature
 
 private const val MODE_QR = 0
@@ -39,10 +40,7 @@ fun ScanHubScreen(
     var mode by remember { mutableIntStateOf(MODE_QR) }
 
     val enrolled = remember(faceProfiles) {
-        faceProfiles.flatMap { profile ->
-            if (!FaceSignature.isCurrentFormat(profile.signature)) return@flatMap emptyList()
-            FaceSignature.decodeAll(profile.signature).map { profile.displayName to it }
-        }
+        faceProfiles.toMatchCatalog()
     }
 
     val hasLegacyProfiles = remember(faceProfiles) {

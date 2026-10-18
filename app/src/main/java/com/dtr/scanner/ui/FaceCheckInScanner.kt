@@ -26,6 +26,7 @@ fun FaceCheckInScanner(
     onFaceUnknown: () -> Unit,
     onFaceAmbiguous: () -> Unit,
     onNeedsReEnroll: () -> Unit,
+    onRescanReady: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var outcome by remember(livenessSessionKey) { mutableStateOf<FaceScanOutcome?>(null) }
@@ -37,6 +38,7 @@ fun FaceCheckInScanner(
                 delay(SUCCESS_DISPLAY_MS)
                 onRecognized(current.displayName)
                 outcome = null
+                onRescanReady()
             }
 
             FaceScanOutcome.NotRecognized -> {
@@ -44,6 +46,7 @@ fun FaceCheckInScanner(
                 afterFailure?.invoke()
                 afterFailure = null
                 outcome = null
+                onRescanReady()
             }
 
             null -> Unit

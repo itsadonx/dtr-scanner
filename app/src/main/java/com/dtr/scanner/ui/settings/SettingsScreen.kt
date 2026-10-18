@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dtr.scanner.BuildConfig
 import com.dtr.scanner.R
+import com.dtr.scanner.data.FaceEnrollmentInput
 import com.dtr.scanner.data.FaceProfile
 import com.dtr.scanner.ui.theme.TextMuted
 import com.dtr.scanner.ui.PeopleScreen
@@ -26,7 +27,7 @@ fun SettingsScreen(
     profiles: List<FaceProfile>,
     enrollStatus: String,
     enrollLivenessSession: Int,
-    onEnroll: (String, List<FloatArray>) -> Unit,
+    onEnroll: (FaceEnrollmentInput, onSaved: (FaceProfile) -> Unit) -> Unit,
     onDeleteProfile: (Long) -> Unit,
     onFaceSampleProgress: (Int, Int) -> Unit,
     onLivenessHint: (String) -> Unit,

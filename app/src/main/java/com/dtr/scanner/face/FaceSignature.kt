@@ -27,10 +27,10 @@ object FaceSignature {
     )
 
     /** Lower is a closer match. Same person is usually under [MATCH_THRESHOLD]. */
-    const val MATCH_THRESHOLD = 0.155f
+    const val MATCH_THRESHOLD = 0.20f
 
-    /** Best match must beat the runner-up by at least this much. */
-    const val MIN_MATCH_MARGIN = 0.045f
+    /** Best match must beat the runner-up by at least this much (when multiple people enrolled). */
+    const val MIN_MATCH_MARGIN = 0.025f
 
     const val ENROLLMENT_SAMPLES = 5
 
@@ -40,9 +40,10 @@ object FaceSignature {
     }
 
     fun extract(face: Face, mode: ExtractMode = ExtractMode.MATCH): FloatArray? {
-        val maxYaw = if (mode == ExtractMode.MATCH) 10f else 16f
-        val maxPitch = if (mode == ExtractMode.MATCH) 12f else 16f
-        val minFaceWidth = if (mode == ExtractMode.MATCH) 140 else 120
+        // Use the same pose bounds for enroll and check-in so stored templates match live probes.
+        val maxYaw = 18f
+        val maxPitch = 18f
+        val minFaceWidth = if (mode == ExtractMode.MATCH) 100 else 120
 
         if (abs(face.headEulerAngleY) > maxYaw) return null
         if (abs(face.headEulerAngleX) > maxPitch) return null
@@ -71,8 +72,10 @@ object FaceSignature {
     /** Stores every enrollment capture as its own template (better than a single average). */
     fun encodeAll(samples: List<FloatArray>): String {
         require(samples.isNotEmpty()) { "samples must not be empty" }
-        if (samples.size == 1) return encode(samples.first())
-        return SIGNATURE_MULTI_PREFIX + samples.joinToString(MULTI_SAMPLE_SEPARATOR) {
+        val templates = samples.toMutableList()
+        average(samples)?.let { templates.add(it) }
+        if (templates.size == 1) return encode(templates.first())
+        return SIGNATURE_MULTI_PREFIX + templates.joinToString(MULTI_SAMPLE_SEPARATOR) {
             it.joinToString(",")
         }
     }
@@ -146,7 +149,7 @@ object FaceSignature {
         if (bestDistance > MATCH_THRESHOLD) {
             return MatchResult(displayName = null, ambiguous = false)
         }
-        if ((secondDistance - bestDistance) < MIN_MATCH_MARGIN) {
+        if (ranked.size > 1 && (secondDistance - bestDistance) < MIN_MATCH_MARGIN) {
             return MatchResult(displayName = null, ambiguous = true)
         }
         return MatchResult(displayName = bestName, ambiguous = false)
