@@ -7,6 +7,7 @@ import kotlin.math.hypot
 import kotlin.math.sqrt
 
 object FaceSignature {
+    /** Eyes, nose, and mouth — stable on front/back camera without ear gaps. */
     private val landmarkTypes = intArrayOf(
         FaceLandmark.LEFT_EYE,
         FaceLandmark.RIGHT_EYE,
@@ -14,14 +15,12 @@ object FaceSignature {
         FaceLandmark.MOUTH_LEFT,
         FaceLandmark.MOUTH_RIGHT,
         FaceLandmark.MOUTH_BOTTOM,
-        FaceLandmark.LEFT_EAR,
-        FaceLandmark.RIGHT_EAR,
     )
 
     /** Lower is a closer match. Same person is usually under [MATCH_THRESHOLD]. */
-    const val MATCH_THRESHOLD = 0.22f
+    const val MATCH_THRESHOLD = 0.28f
 
-    private const val STRONG_MATCH_THRESHOLD = 0.12f
+    private const val STRONG_MATCH_THRESHOLD = 0.15f
     const val MIN_MATCH_MARGIN = 0.008f
 
     const val ENROLLMENT_SAMPLES = 5
@@ -46,13 +45,12 @@ object FaceSignature {
         if (abs(face.headEulerAngleX) > maxPitch) return null
         if (face.boundingBox.width() < minFaceWidth) return null
 
-        val leftEye = face.getLandmark(FaceLandmark.LEFT_EYE)?.position ?: return null
-        val rightEye = face.getLandmark(FaceLandmark.RIGHT_EYE)?.position ?: return null
-        val nose = face.getLandmark(FaceLandmark.NOSE_BASE)?.position ?: return null
         if (mode == ExtractMode.ENROLL && !isFrontalForEnrollment(face)) {
             return null
         }
 
+        val leftEye = face.getLandmark(FaceLandmark.LEFT_EYE)?.position ?: return null
+        val rightEye = face.getLandmark(FaceLandmark.RIGHT_EYE)?.position ?: return null
         val centerX = (leftEye.x + rightEye.x) / 2f
         val centerY = (leftEye.y + rightEye.y) / 2f
         val scale = hypot(leftEye.x - rightEye.x, leftEye.y - rightEye.y).coerceAtLeast(1f)
@@ -60,14 +58,9 @@ object FaceSignature {
         val values = FloatArray(signatureFloatCount)
         var index = 0
         for (type in landmarkTypes) {
-            val pos = when (type) {
-                FaceLandmark.NOSE_BASE -> nose
-                else -> face.getLandmark(type)?.position
-            }
-            if (pos != null) {
-                values[index] = (pos.x - centerX) / scale
-                values[index + 1] = (pos.y - centerY) / scale
-            }
+            val pos = face.getLandmark(type)?.position ?: return null
+            values[index] = (pos.x - centerX) / scale
+            values[index + 1] = (pos.y - centerY) / scale
             index += 2
         }
         return values
@@ -144,12 +137,16 @@ object FaceSignature {
 
     private fun parseBody(body: String): FloatArray? {
         if (body.isBlank()) return null
-        return body.split(",").mapNotNull { it.toFloatOrNull() }.toFloatArray().takeIf { it.isNotEmpty() }
+        val values = body.split(",").mapNotNull { it.toFloatOrNull() }.toFloatArray()
+        if (values.isEmpty()) return null
+        if (values.size == signatureFloatCount) return values
+        // Older v4 templates stored 8 landmarks (16 floats); ignore for matching.
+        return null
     }
 
     fun distance(a: FloatArray, b: FloatArray): Float {
         val shared = minOf(a.size, b.size)
-        if (shared < 8) return Float.MAX_VALUE
+        if (shared < 10) return Float.MAX_VALUE
         var sum = 0f
         var used = 0
         var i = 0
@@ -168,7 +165,7 @@ object FaceSignature {
             used += 2
             i += 2
         }
-        if (used < 8) return Float.MAX_VALUE
+        if (used < 10) return Float.MAX_VALUE
         return sqrt(sum / used)
     }
 

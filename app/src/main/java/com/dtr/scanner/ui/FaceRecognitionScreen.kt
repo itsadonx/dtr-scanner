@@ -50,7 +50,9 @@ fun FaceRecognitionScreen(
     modifier: Modifier = Modifier,
     useFrontCamera: Boolean = true,
     useDedicatedHintBar: Boolean = true,
+    showOverlayHints: Boolean? = null,
 ) {
+    val overlayHints = showOverlayHints ?: !useDedicatedHintBar
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
@@ -179,7 +181,7 @@ fun FaceRecognitionScreen(
             ScanFrameOverlay(
                 instruction = stringResource(R.string.scan_face_instruction),
                 statusLine = primaryHint,
-                showHintText = true,
+                showHintText = overlayHints,
                 modifier = Modifier.align(Alignment.Center),
             )
         }

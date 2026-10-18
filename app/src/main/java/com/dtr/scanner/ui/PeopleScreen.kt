@@ -39,7 +39,10 @@ import com.dtr.scanner.data.FaceTemplateStore
 import com.dtr.scanner.face.FaceLivenessTracker.Mode as LivenessMode
 import com.dtr.scanner.face.FaceSignature
 import com.dtr.scanner.face.FaceSignature.ExtractMode
+import com.dtr.scanner.ui.components.FaceScanHintBar
 import com.dtr.scanner.ui.components.FaceTemplatePreview
+import androidx.compose.ui.res.stringResource
+import com.dtr.scanner.R
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -67,6 +70,7 @@ fun PeopleScreen(
     var samples by remember(enrollLivenessSession) { mutableStateOf(listOf<FloatArray>()) }
     var templateJpegs by remember(enrollLivenessSession) { mutableStateOf(listOf<ByteArray>()) }
     var templatesDialogProfile by remember { mutableStateOf<FaceProfile?>(null) }
+    var captureHint by remember(enrollLivenessSession) { mutableStateOf<String?>(null) }
 
     val detailsComplete = fullName.isNotBlank() &&
         area.isNotBlank() &&
@@ -121,6 +125,7 @@ fun PeopleScreen(
                     )
                     Button(
                         onClick = {
+                            captureHint = null
                             showCaptureCamera = true
                             onStartCaptureSession()
                         },
@@ -139,13 +144,24 @@ fun PeopleScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
                         )
+                        FaceScanHintBar(
+                            primaryLine = captureHint ?: enrollStatus.ifBlank {
+                                "Follow the liveness prompts."
+                            },
+                            secondaryLine = stringResource(R.string.scan_face_instruction),
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        )
                         FaceRecognitionScreen(
                             statusText = enrollStatus,
                             livenessSessionKey = enrollLivenessSession,
-                            onLivenessHint = onLivenessHint,
+                            onLivenessHint = { hint ->
+                                captureHint = hint
+                                onLivenessHint(hint)
+                            },
                             extractMode = ExtractMode.ENROLL,
                             livenessMode = LivenessMode.ENROLLMENT,
                             useDedicatedHintBar = false,
+                            showOverlayHints = false,
                             captureFaceThumbnail = true,
                             onFaceCapture = { capture ->
                                 if (samples.size >= FaceSignature.ENROLLMENT_SAMPLES) {
@@ -153,7 +169,7 @@ fun PeopleScreen(
                                 }
                                 val signature = capture.signature
                                 val consistent = samples.isEmpty() ||
-                                    FaceSignature.distance(samples.last(), signature) < 0.12f
+                                    FaceSignature.distance(samples.last(), signature) < 0.18f
                                 if (!consistent) return@FaceRecognitionScreen
                                 samples = samples + signature
                                 capture.thumbnailJpeg?.let { jpeg ->
