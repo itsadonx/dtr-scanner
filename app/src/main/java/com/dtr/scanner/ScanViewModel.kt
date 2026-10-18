@@ -9,6 +9,7 @@ import com.dtr.scanner.data.FaceProfile
 import com.dtr.scanner.data.FaceTemplateStore
 import com.dtr.scanner.data.ScanRecord
 import com.dtr.scanner.data.ScanType
+import com.dtr.scanner.face.FaceCheckInPolicy
 import com.dtr.scanner.face.FaceSignature
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -27,6 +28,12 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
 
     private val recentFaceCheckIns = mutableMapOf<String, Long>()
 
+    init {
+        viewModelScope.launch {
+            records.collect { syncRecentFaceCheckInsFromHistory(it) }
+        }
+    }
+
     fun saveScan(content: String, scanType: String = ScanType.QR) {
         val trimmed = content.trim()
         if (trimmed.isEmpty()) return
@@ -41,30 +48,53 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun isFaceCheckInDuplicate(displayName: String): Boolean {
+    fun isFaceCheckInDuplicate(displayName: String, history: List<ScanRecord> = emptyList()): Boolean {
+        if (isFaceCheckInDuplicateInMemory(displayName)) return true
+        return FaceCheckInPolicy.isDuplicateInRecords(history, displayName)
+    }
+
+    /** Returns true when a new face attendance row was saved. */
+    fun saveFaceRecognition(displayName: String, history: List<ScanRecord> = emptyList()): Boolean {
+        val trimmed = displayName.trim()
+        if (trimmed.isEmpty()) return false
+        if (isFaceCheckInDuplicate(trimmed, history)) {
+            return false
+        }
+        val now = System.currentTimeMillis()
+        recentFaceCheckIns[trimmed] = now
+        pruneExpiredFaceCheckIns()
+        saveScan(FaceCheckInPolicy.recordContent(trimmed), ScanType.FACE)
+        return true
+    }
+
+    private fun isFaceCheckInDuplicateInMemory(displayName: String): Boolean {
         val trimmed = displayName.trim()
         if (trimmed.isEmpty()) return false
         pruneExpiredFaceCheckIns()
         val lastMs = recentFaceCheckIns[trimmed] ?: return false
-        return System.currentTimeMillis() - lastMs < FACE_DUPLICATE_COOLDOWN_MS
+        return System.currentTimeMillis() - lastMs < FaceCheckInPolicy.DUPLICATE_WINDOW_MS
     }
 
-    /** Returns true when a new face attendance row was saved. */
-    fun saveFaceRecognition(displayName: String): Boolean {
-        val trimmed = displayName.trim()
-        if (trimmed.isEmpty()) return false
-        if (isFaceCheckInDuplicate(trimmed)) {
-            return false
-        }
-        recentFaceCheckIns[trimmed] = System.currentTimeMillis()
+    private fun syncRecentFaceCheckInsFromHistory(history: List<ScanRecord>) {
+        val now = System.currentTimeMillis()
+        val since = now - FaceCheckInPolicy.DUPLICATE_WINDOW_MS
+        history.filter { it.scanType == ScanType.FACE && it.scannedAtEpochMs >= since }
+            .forEach { record ->
+                val name = record.content.removePrefix("Face check-in: ").trim()
+                if (name.isEmpty()) return@forEach
+                val existing = recentFaceCheckIns[name]
+                if (existing == null || record.scannedAtEpochMs > existing) {
+                    recentFaceCheckIns[name] = record.scannedAtEpochMs
+                }
+            }
         pruneExpiredFaceCheckIns()
-        saveScan("Face check-in: $trimmed", ScanType.FACE)
-        return true
     }
 
     private fun pruneExpiredFaceCheckIns() {
         val now = System.currentTimeMillis()
-        val expired = recentFaceCheckIns.filterValues { now - it >= FACE_DUPLICATE_COOLDOWN_MS }.keys
+        val expired = recentFaceCheckIns.filterValues {
+            now - it >= FaceCheckInPolicy.DUPLICATE_WINDOW_MS
+        }.keys
         expired.forEach { recentFaceCheckIns.remove(it) }
     }
 
@@ -116,7 +146,4 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    companion object {
-        private const val FACE_DUPLICATE_COOLDOWN_MS = 60_000L
-    }
 }

@@ -122,10 +122,12 @@ fun SecureAttendApp() {
                         faceLivenessSession++
                         faceStatus = "Blink once to check in."
                     },
-                    isDuplicateCheckIn = viewModel::isFaceCheckInDuplicate,
+                    isDuplicateCheckIn = { name ->
+                        viewModel.isFaceCheckInDuplicate(name, records)
+                    },
                     onLivenessHint = { faceStatus = it },
                     onRecognized = { name ->
-                        if (viewModel.saveFaceRecognition(name)) {
+                        if (viewModel.saveFaceRecognition(name, records)) {
                             Toast.makeText(
                                 context,
                                 "$name checked in at ${formatNow()}",
