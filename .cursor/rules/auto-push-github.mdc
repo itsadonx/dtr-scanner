@@ -1,0 +1,12 @@
+---
+description: After fixing or changing this Android project, commit and push to origin/main so GitHub Actions builds the APK.
+alwaysApply: true
+---
+
+When you change code or CI in this repo:
+
+1. Stage only relevant files (never secrets or `local.properties`).
+2. Commit with a clear message.
+3. Run `git push origin main` without asking the user to push manually.
+
+The remote is `https://github.com/itsadonx/dtr-scanner.git`. APK builds run automatically on push via `.github/workflows/build-apk.yml`.
