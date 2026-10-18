@@ -26,6 +26,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.dtr.scanner.data.FaceProfile
+import com.dtr.scanner.face.FaceSignature
+import com.dtr.scanner.face.FaceSignature.ExtractMode
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -39,14 +41,14 @@ fun PeopleScreen(
     enrollStatus: String,
     onEnroll: (displayName: String, signature: FloatArray) -> Unit,
     onDeleteProfile: (Long) -> Unit,
-    onFaceSampled: () -> Unit = {},
+    onFaceSampleProgress: (Int, Int) -> Unit = { _, _ -> },
     onLivenessHint: (String) -> Unit = {},
     enrollLivenessSession: Int = 0,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     var name by remember { mutableStateOf("") }
-    var pendingSignature by remember { mutableStateOf<FloatArray?>(null) }
+    var samples by remember(enrollLivenessSession) { mutableStateOf(listOf<FloatArray>()) }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -65,7 +67,8 @@ fun PeopleScreen(
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = "Complete the live check (blink + head turn), then enter a name and save.",
+                        text = "After the live check, hold still while we capture " +
+                            "${FaceSignature.ENROLLMENT_SAMPLES} samples, then save.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
@@ -74,9 +77,14 @@ fun PeopleScreen(
                         statusText = enrollStatus,
                         livenessSessionKey = enrollLivenessSession,
                         onLivenessHint = onLivenessHint,
+                        extractMode = ExtractMode.ENROLL,
                         onFaceSignature = { signature ->
-                            pendingSignature = signature
-                            onFaceSampled()
+                            if (samples.size >= FaceSignature.ENROLLMENT_SAMPLES) return@FaceRecognitionScreen
+                            val consistent = samples.isEmpty() ||
+                                FaceSignature.distance(samples.last(), signature) < 0.11f
+                            if (!consistent) return@FaceRecognitionScreen
+                            samples = samples + signature
+                            onFaceSampleProgress(samples.size, FaceSignature.ENROLLMENT_SAMPLES)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -93,14 +101,14 @@ fun PeopleScreen(
                     Button(
                         onClick = {
                             val trimmed = name.trim()
-                            val signature = pendingSignature
-                            if (trimmed.isNotEmpty() && signature != null) {
-                                onEnroll(trimmed, signature)
+                            val averaged = FaceSignature.average(samples)
+                            if (trimmed.isNotEmpty() && averaged != null) {
+                                onEnroll(trimmed, averaged)
                                 name = ""
-                                pendingSignature = null
+                                samples = emptyList()
                             }
                         },
-                        enabled = name.isNotBlank() && pendingSignature != null,
+                        enabled = name.isNotBlank() && samples.size >= FaceSignature.ENROLLMENT_SAMPLES,
                         modifier = Modifier.padding(top = 8.dp),
                     ) {
                         Text("Save face profile")
@@ -147,6 +155,7 @@ private fun FaceProfileRow(
     val enrolledAt = Instant.ofEpochMilli(profile.enrolledAtEpochMs)
         .atZone(ZoneId.systemDefault())
         .format(enrolledFormatter)
+    val needsReEnroll = !FaceSignature.isCurrentFormat(profile.signature)
 
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -156,6 +165,14 @@ private fun FaceProfileRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (needsReEnroll) {
+                Text(
+                    text = "Re-enroll this person for improved matching.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
             IconButton(onClick = { onDelete(profile.id) }) {
                 Icon(Icons.Default.Delete, contentDescription = "Remove profile")
             }

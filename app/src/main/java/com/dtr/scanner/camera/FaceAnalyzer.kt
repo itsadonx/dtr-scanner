@@ -5,6 +5,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import com.dtr.scanner.face.FaceLivenessTracker
 import com.dtr.scanner.face.FaceSignature
+import com.dtr.scanner.face.FaceSignature.ExtractMode
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
@@ -14,12 +15,14 @@ class FaceAnalyzer(
     private val onLivenessHint: (String) -> Unit,
     private val onLiveFaceSignature: (FloatArray) -> Unit,
     private val consumeLivenessAfterCapture: Boolean = false,
+    private val extractMode: ExtractMode = ExtractMode.MATCH,
 ) : ImageAnalysis.Analyzer {
 
     private val detector = FaceDetection.getClient(
         FaceDetectorOptions.Builder()
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
             .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
+            .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL)
             .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
             .enableTracking()
             .build(),
@@ -58,7 +61,7 @@ class FaceAnalyzer(
                     return@addOnSuccessListener
                 }
 
-                val signature = FaceSignature.extract(face) ?: return@addOnSuccessListener
+                val signature = FaceSignature.extract(face, extractMode) ?: return@addOnSuccessListener
                 val now = System.currentTimeMillis()
                 if (now - lastEmitTimeMs < EMIT_COOLDOWN_MS) return@addOnSuccessListener
                 lastEmitTimeMs = now

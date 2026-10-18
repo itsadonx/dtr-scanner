@@ -140,7 +140,16 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onFaceUnknown = {
-                                        faceStatus = "Face not recognized — complete live check and enroll on People tab."
+                                        faceStatus =
+                                            "Not recognized — face the camera directly or enroll this person on People."
+                                    },
+                                    onFaceAmbiguous = {
+                                        faceStatus =
+                                            "Too close to call — look straight at the camera and try again."
+                                    },
+                                    onNeedsReEnroll = {
+                                        faceStatus =
+                                            "Delete old profiles on People and enroll again (matching was upgraded)."
                                     },
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -172,8 +181,9 @@ class MainActivity : ComponentActivity() {
                                             Toast.LENGTH_SHORT,
                                         ).show()
                                     },
-                                    onFaceSampled = {
-                                        enrollStatus = "Live face captured — enter a name and tap Save."
+                                    onFaceSampleProgress = { captured, total ->
+                                        enrollStatus =
+                                            "Sample $captured of $total captured — keep still, then enter name and save."
                                     },
                                     onLivenessHint = { hint -> enrollStatus = hint },
                                     enrollLivenessSession = enrollLivenessSession,

@@ -16,6 +16,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.dtr.scanner.data.FaceProfile
+import com.dtr.scanner.face.FaceSignature
+import com.dtr.scanner.face.FaceSignature.ExtractMode
 
 private const val MODE_QR = 0
 private const val MODE_FACE = 1
@@ -23,12 +26,14 @@ private const val MODE_FACE = 1
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanHubScreen(
-    faceProfiles: List<com.dtr.scanner.data.FaceProfile>,
+    faceProfiles: List<FaceProfile>,
     faceStatus: String,
     faceLivenessSession: Int,
     onQrScanned: (String) -> Unit,
     onFaceRecognized: (String) -> Unit,
     onFaceUnknown: () -> Unit,
+    onFaceAmbiguous: () -> Unit,
+    onNeedsReEnroll: () -> Unit,
     onLivenessHint: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -36,10 +41,14 @@ fun ScanHubScreen(
 
     val enrolled = remember(faceProfiles) {
         faceProfiles.mapNotNull { profile ->
-            val signature = com.dtr.scanner.face.FaceSignature.decode(profile.signature)
-                ?: return@mapNotNull null
-            Triple(profile.id, profile.displayName, signature)
+            if (!FaceSignature.isCurrentFormat(profile.signature)) return@mapNotNull null
+            val signature = FaceSignature.decode(profile.signature) ?: return@mapNotNull null
+            profile.displayName to signature
         }
+    }
+
+    val hasLegacyProfiles = remember(faceProfiles) {
+        faceProfiles.any { !FaceSignature.isCurrentFormat(it.signature) }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -71,31 +80,32 @@ fun ScanHubScreen(
             )
 
             else -> {
-                val status = if (enrolled.isEmpty()) {
-                    "Enroll faces on the People tab first, then return here."
-                } else {
-                    faceStatus
+                val status = when {
+                    hasLegacyProfiles && enrolled.isEmpty() ->
+                        "Re-enroll everyone on People (profiles were upgraded for accuracy)."
+
+                    enrolled.isEmpty() ->
+                        "Enroll faces on the People tab first, then return here."
+
+                    else -> faceStatus
                 }
                 FaceRecognitionScreen(
                     statusText = status,
                     livenessSessionKey = faceLivenessSession,
                     onLivenessHint = onLivenessHint,
                     consumeLivenessAfterCapture = true,
+                    extractMode = ExtractMode.MATCH,
                     onFaceSignature = { probe ->
-                        if (enrolled.isEmpty()) return@FaceRecognitionScreen
-                        var bestName: String? = null
-                        var bestDistance = Float.MAX_VALUE
-                        for ((_, name, signature) in enrolled) {
-                            val distance = com.dtr.scanner.face.FaceSignature.distance(probe, signature)
-                            if (distance < bestDistance) {
-                                bestDistance = distance
-                                bestName = name
-                            }
+                        if (hasLegacyProfiles && enrolled.isEmpty()) {
+                            onNeedsReEnroll()
+                            return@FaceRecognitionScreen
                         }
-                        if (bestName != null && bestDistance <= com.dtr.scanner.face.FaceSignature.MATCH_THRESHOLD) {
-                            onFaceRecognized(bestName)
-                        } else {
-                            onFaceUnknown()
+                        if (enrolled.isEmpty()) return@FaceRecognitionScreen
+                        val result = FaceSignature.match(probe, enrolled)
+                        when {
+                            result.displayName != null -> onFaceRecognized(result.displayName)
+                            result.ambiguous -> onFaceAmbiguous()
+                            else -> onFaceUnknown()
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
