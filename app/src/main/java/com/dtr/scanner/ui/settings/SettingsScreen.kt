@@ -13,8 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.dtr.scanner.BuildConfig
 import com.dtr.scanner.R
 import com.dtr.scanner.data.FaceProfile
+import com.dtr.scanner.ui.theme.TextMuted
 import com.dtr.scanner.ui.PeopleScreen
 import com.dtr.scanner.ui.components.DevelopedByFooter
 import com.dtr.scanner.ui.theme.ScreenBackground
@@ -61,6 +63,18 @@ fun SettingsScreen(
         ) {
             Text(stringResource(R.string.clear_all_history))
         }
+        Text(
+            text = stringResource(
+                R.string.app_version_label,
+                BuildConfig.VERSION_NAME,
+                BuildConfig.VERSION_CODE,
+            ),
+            style = MaterialTheme.typography.labelMedium,
+            color = TextMuted,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+        )
         DevelopedByFooter()
     }
 }
