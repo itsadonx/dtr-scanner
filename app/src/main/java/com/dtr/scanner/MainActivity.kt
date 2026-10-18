@@ -62,8 +62,10 @@ class MainActivity : ComponentActivity() {
                 val faceProfiles by viewModel.faceProfiles.collectAsStateWithLifecycle()
                 var selectedTab by remember { mutableIntStateOf(TAB_SCAN) }
                 var showClearDialog by remember { mutableStateOf(false) }
-                var faceStatus by remember { mutableStateOf("Look at the front camera to check in.") }
-                var enrollStatus by remember { mutableStateOf("Hold still until your face is detected.") }
+                var faceStatus by remember { mutableStateOf("Blink once, turn your head, then check in.") }
+                var enrollStatus by remember { mutableStateOf("Blink once and turn your head to enroll.") }
+                var faceLivenessSession by remember { mutableIntStateOf(0) }
+                var enrollLivenessSession by remember { mutableIntStateOf(0) }
 
                 val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
 
@@ -116,6 +118,8 @@ class MainActivity : ComponentActivity() {
                                 ScanHubScreen(
                                     faceProfiles = faceProfiles,
                                     faceStatus = faceStatus,
+                                    faceLivenessSession = faceLivenessSession,
+                                    onLivenessHint = { hint -> faceStatus = hint },
                                     onQrScanned = { content ->
                                         viewModel.saveScan(content)
                                         Toast.makeText(
@@ -126,7 +130,8 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onFaceRecognized = { name ->
                                         if (viewModel.saveFaceRecognition(name)) {
-                                            faceStatus = "Recognized: $name"
+                                            faceLivenessSession++
+                                            faceStatus = "Recognized: $name — live check required for next check-in."
                                             Toast.makeText(
                                                 this,
                                                 "$name checked in at ${formatNow()}",
@@ -135,7 +140,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onFaceUnknown = {
-                                        faceStatus = "Face not recognized — enroll on People tab."
+                                        faceStatus = "Face not recognized — complete live check and enroll on People tab."
                                     },
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -159,7 +164,8 @@ class MainActivity : ComponentActivity() {
                                     enrollStatus = enrollStatus,
                                     onEnroll = { name, signature ->
                                         viewModel.enrollFace(name, signature)
-                                        enrollStatus = "Saved $name. You can enroll another person."
+                                        enrollLivenessSession++
+                                        enrollStatus = "Saved $name. Live check again for the next person."
                                         Toast.makeText(
                                             this,
                                             "Enrolled $name",
@@ -167,8 +173,10 @@ class MainActivity : ComponentActivity() {
                                         ).show()
                                     },
                                     onFaceSampled = {
-                                        enrollStatus = "Face detected — enter a name and tap Save."
+                                        enrollStatus = "Live face captured — enter a name and tap Save."
                                     },
+                                    onLivenessHint = { hint -> enrollStatus = hint },
+                                    enrollLivenessSession = enrollLivenessSession,
                                     onDeleteProfile = viewModel::deleteFaceProfile,
                                     modifier = Modifier.fillMaxSize(),
                                     contentPadding = innerPadding,

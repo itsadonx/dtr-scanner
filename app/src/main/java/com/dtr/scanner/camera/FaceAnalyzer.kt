@@ -3,26 +3,33 @@ package com.dtr.scanner.camera
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
+import com.dtr.scanner.face.FaceLivenessTracker
 import com.dtr.scanner.face.FaceSignature
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 
 class FaceAnalyzer(
-    private val onFaceSignature: (FloatArray) -> Unit,
+    private val livenessTracker: FaceLivenessTracker,
+    private val onLivenessHint: (String) -> Unit,
+    private val onLiveFaceSignature: (FloatArray) -> Unit,
+    private val consumeLivenessAfterCapture: Boolean = false,
 ) : ImageAnalysis.Analyzer {
 
     private val detector = FaceDetection.getClient(
         FaceDetectorOptions.Builder()
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
             .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
-            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
+            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
             .enableTracking()
             .build(),
     )
 
     @Volatile
     private var lastEmitTimeMs: Long = 0L
+
+    @Volatile
+    private var lastHint: String? = null
 
     @OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
@@ -39,16 +46,36 @@ class FaceAnalyzer(
 
         detector.process(inputImage)
             .addOnSuccessListener { faces ->
-                val face = faces.maxByOrNull { it.boundingBox.width() } ?: return@addOnSuccessListener
+                val face = faces.maxByOrNull { it.boundingBox.width() } ?: run {
+                    publishHint("Position your face in the camera.")
+                    return@addOnSuccessListener
+                }
+
+                val liveness = livenessTracker.process(face)
+                publishHint(liveness.hint)
+
+                if (!liveness.verified) {
+                    return@addOnSuccessListener
+                }
+
                 val signature = FaceSignature.extract(face) ?: return@addOnSuccessListener
                 val now = System.currentTimeMillis()
                 if (now - lastEmitTimeMs < EMIT_COOLDOWN_MS) return@addOnSuccessListener
                 lastEmitTimeMs = now
-                onFaceSignature(signature)
+                onLiveFaceSignature(signature)
+                if (consumeLivenessAfterCapture) {
+                    livenessTracker.consumeVerification()
+                }
             }
             .addOnCompleteListener {
                 imageProxy.close()
             }
+    }
+
+    private fun publishHint(hint: String) {
+        if (hint == lastHint) return
+        lastHint = hint
+        onLivenessHint(hint)
     }
 
     companion object {

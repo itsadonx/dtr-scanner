@@ -25,9 +25,11 @@ private const val MODE_FACE = 1
 fun ScanHubScreen(
     faceProfiles: List<com.dtr.scanner.data.FaceProfile>,
     faceStatus: String,
+    faceLivenessSession: Int,
     onQrScanned: (String) -> Unit,
     onFaceRecognized: (String) -> Unit,
     onFaceUnknown: () -> Unit,
+    onLivenessHint: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var mode by remember { mutableIntStateOf(MODE_QR) }
@@ -76,6 +78,9 @@ fun ScanHubScreen(
                 }
                 FaceRecognitionScreen(
                     statusText = status,
+                    livenessSessionKey = faceLivenessSession,
+                    onLivenessHint = onLivenessHint,
+                    consumeLivenessAfterCapture = true,
                     onFaceSignature = { probe ->
                         if (enrolled.isEmpty()) return@FaceRecognitionScreen
                         var bestName: String? = null

@@ -40,6 +40,8 @@ fun PeopleScreen(
     onEnroll: (displayName: String, signature: FloatArray) -> Unit,
     onDeleteProfile: (Long) -> Unit,
     onFaceSampled: () -> Unit = {},
+    onLivenessHint: (String) -> Unit = {},
+    enrollLivenessSession: Int = 0,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
@@ -63,13 +65,15 @@ fun PeopleScreen(
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = "Look at the front camera, enter a name, then save.",
+                        text = "Complete the live check (blink + head turn), then enter a name and save.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
                     )
                     FaceRecognitionScreen(
                         statusText = enrollStatus,
+                        livenessSessionKey = enrollLivenessSession,
+                        onLivenessHint = onLivenessHint,
                         onFaceSignature = { signature ->
                             pendingSignature = signature
                             onFaceSampled()

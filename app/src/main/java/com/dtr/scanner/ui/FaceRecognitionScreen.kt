@@ -14,7 +14,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,22 +26,47 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.dtr.scanner.camera.FaceAnalyzer
+import com.dtr.scanner.face.FaceLivenessTracker
 import java.util.concurrent.Executors
 
 @Composable
 fun FaceRecognitionScreen(
     statusText: String,
     onFaceSignature: (FloatArray) -> Unit,
+    onLivenessHint: (String) -> Unit = {},
+    livenessSessionKey: Int = 0,
+    consumeLivenessAfterCapture: Boolean = false,
     modifier: Modifier = Modifier,
     useFrontCamera: Boolean = true,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+    val livenessTracker = remember { FaceLivenessTracker() }
+    var liveHint by remember { mutableStateOf<String?>(null) }
+
     val lensFacing = if (useFrontCamera) {
         CameraSelector.LENS_FACING_FRONT
     } else {
         CameraSelector.LENS_FACING_BACK
+    }
+
+    val faceAnalyzer = remember(livenessTracker) {
+        FaceAnalyzer(
+            livenessTracker = livenessTracker,
+            onLivenessHint = { hint ->
+                liveHint = hint
+                onLivenessHint(hint)
+            },
+            onLiveFaceSignature = onFaceSignature,
+            consumeLivenessAfterCapture = consumeLivenessAfterCapture,
+        )
+    }
+
+    DisposableEffect(livenessSessionKey) {
+        livenessTracker.resetChallenge()
+        liveHint = null
+        onDispose { }
     }
 
     DisposableEffect(Unit) {
@@ -46,6 +74,8 @@ fun FaceRecognitionScreen(
             cameraExecutor.shutdown()
         }
     }
+
+    val bannerText = liveHint ?: statusText
 
     Box(modifier = modifier.fillMaxSize()) {
         AndroidView(
@@ -69,10 +99,7 @@ fun FaceRecognitionScreen(
                             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                             .build()
                             .also {
-                                it.setAnalyzer(
-                                    cameraExecutor,
-                                    FaceAnalyzer(onFaceSignature),
-                                )
+                                it.setAnalyzer(cameraExecutor, faceAnalyzer)
                             }
 
                         val selector = CameraSelector.Builder()
@@ -104,7 +131,7 @@ fun FaceRecognitionScreen(
             shape = MaterialTheme.shapes.medium,
         ) {
             Text(
-                text = statusText,
+                text = bannerText,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 style = MaterialTheme.typography.bodyMedium,
             )
