@@ -69,7 +69,10 @@ class FaceAnalyzer(
                     return@addOnSuccessListener
                 }
 
-                val signature = FaceSignature.extract(face, extractMode) ?: return@addOnSuccessListener
+                val signature = FaceSignature.extract(face, extractMode) ?: run {
+                    publishHint("Face the camera and move a little closer.")
+                    return@addOnSuccessListener
+                }
                 val now = System.currentTimeMillis()
                 if (now - lastEmitTimeMs < EMIT_COOLDOWN_MS) return@addOnSuccessListener
                 lastEmitTimeMs = now

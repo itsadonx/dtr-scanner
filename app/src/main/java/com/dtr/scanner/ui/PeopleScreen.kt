@@ -63,7 +63,7 @@ fun PeopleScreen(
     var fullName by rememberSaveable { mutableStateOf("") }
     var area by rememberSaveable { mutableStateOf("") }
     var businessUnit by rememberSaveable { mutableStateOf("") }
-    var showCaptureCamera by rememberSaveable(enrollLivenessSession) { mutableStateOf(false) }
+    var showCaptureCamera by rememberSaveable { mutableStateOf(false) }
     var samples by remember(enrollLivenessSession) { mutableStateOf(listOf<FloatArray>()) }
     var templateJpegs by remember(enrollLivenessSession) { mutableStateOf(listOf<ByteArray>()) }
     var templatesDialogProfile by remember { mutableStateOf<FaceProfile?>(null) }
@@ -152,7 +152,7 @@ fun PeopleScreen(
                                 }
                                 val signature = capture.signature
                                 val consistent = samples.isEmpty() ||
-                                    FaceSignature.distance(samples.last(), signature) < 0.16f
+                                    FaceSignature.distance(samples.last(), signature) < 0.22f
                                 if (!consistent) return@FaceRecognitionScreen
                                 samples = samples + signature
                                 capture.thumbnailJpeg?.let { jpeg ->

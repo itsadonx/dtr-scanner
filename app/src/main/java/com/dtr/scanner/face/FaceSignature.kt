@@ -27,13 +27,13 @@ object FaceSignature {
     )
 
     /** Lower is a closer match. Same person is usually under [MATCH_THRESHOLD]. */
-    const val MATCH_THRESHOLD = 0.26f
+    const val MATCH_THRESHOLD = 0.34f
 
     /** Strong match — accept even if runner-up is close. */
-    private const val STRONG_MATCH_THRESHOLD = 0.14f
+    private const val STRONG_MATCH_THRESHOLD = 0.24f
 
     /** Best match must beat the runner-up by at least this much (when multiple people enrolled). */
-    const val MIN_MATCH_MARGIN = 0.018f
+    const val MIN_MATCH_MARGIN = 0.012f
 
     const val ENROLLMENT_SAMPLES = 5
 
@@ -44,9 +44,9 @@ object FaceSignature {
 
     fun extract(face: Face, mode: ExtractMode = ExtractMode.MATCH): FloatArray? {
         // Use the same pose bounds for enroll and check-in so stored templates match live probes.
-        val maxYaw = 18f
-        val maxPitch = 18f
-        val minFaceWidth = 72
+        val maxYaw = 22f
+        val maxPitch = 22f
+        val minFaceWidth = 64
 
         if (abs(face.headEulerAngleY) > maxYaw) return null
         if (abs(face.headEulerAngleX) > maxPitch) return null
@@ -197,11 +197,12 @@ object FaceSignature {
         if (bestDistance > MATCH_THRESHOLD) {
             return MatchResult(displayName = null, ambiguous = false)
         }
-        if (ranked.size > 1) {
-            val margin = secondDistance - bestDistance
-            if (margin < MIN_MATCH_MARGIN && bestDistance > STRONG_MATCH_THRESHOLD) {
-                return MatchResult(displayName = null, ambiguous = true)
-            }
+        if (ranked.size == 1) {
+            return MatchResult(displayName = bestName, ambiguous = false)
+        }
+        val margin = secondDistance - bestDistance
+        if (margin < MIN_MATCH_MARGIN && bestDistance > STRONG_MATCH_THRESHOLD) {
+            return MatchResult(displayName = null, ambiguous = true)
         }
         return MatchResult(displayName = bestName, ambiguous = false)
     }
