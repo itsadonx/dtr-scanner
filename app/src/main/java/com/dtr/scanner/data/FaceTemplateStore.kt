@@ -17,7 +17,7 @@ object FaceTemplateStore {
         jpegs.forEachIndexed { index, bytes ->
             val file = File(dir, "$index.jpg")
             file.writeBytes(bytes)
-            paths.add(file.absolutePath)
+            paths.add(relativePath(profileId, index))
         }
         return encodePaths(paths)
     }
@@ -25,6 +25,20 @@ object FaceTemplateStore {
     fun decodePaths(stored: String): List<String> {
         if (stored.isBlank()) return emptyList()
         return stored.split(PATH_SEPARATOR).filter { it.isNotBlank() }
+    }
+
+    /** Resolves stored relative paths and legacy absolute paths. */
+    fun resolveImageFile(context: Context, storedPath: String): File? {
+        if (storedPath.isBlank()) return null
+        val direct = File(storedPath)
+        if (direct.isAbsolute && direct.exists()) return direct
+        val relative = File(context.filesDir, storedPath)
+        if (relative.exists()) return relative
+        return null
+    }
+
+    private fun relativePath(profileId: Long, index: Int): String {
+        return "$ROOT_DIR/$profileId/$index.jpg"
     }
 
     fun deleteProfileImages(context: Context, profileId: Long) {

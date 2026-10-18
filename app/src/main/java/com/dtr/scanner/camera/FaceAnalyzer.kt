@@ -74,11 +74,15 @@ class FaceAnalyzer(
                 if (now - lastEmitTimeMs < EMIT_COOLDOWN_MS) return@addOnSuccessListener
                 lastEmitTimeMs = now
                 val thumbnail = if (captureFaceThumbnail) {
-                    FaceThumbnailCropper.cropToJpeg(
-                        imageProxy = imageProxy,
-                        face = face,
-                        mirrorForFrontCamera = mirrorForFrontCamera,
-                    )
+                    try {
+                        FaceThumbnailCropper.cropToJpeg(
+                            imageProxy = imageProxy,
+                            face = face,
+                            mirrorForFrontCamera = mirrorForFrontCamera,
+                        )
+                    } catch (_: Exception) {
+                        null
+                    }
                 } else {
                     null
                 }

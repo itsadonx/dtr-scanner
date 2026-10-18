@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,10 +23,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.dtr.scanner.data.FaceTemplateStore
 import com.dtr.scanner.face.FaceSignature
 import com.dtr.scanner.ui.theme.RoyalBlue
-import java.io.File
 
 private val FaceFill = RoyalBlue.copy(alpha = 0.12f)
 private val FaceStroke = RoyalBlue.copy(alpha = 0.85f)
@@ -39,27 +41,46 @@ fun FaceTemplatePreview(
     imagePath: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        val photo = remember(imagePath) {
-            val path = imagePath?.takeIf { it.isNotBlank() && File(it).exists() } ?: return@remember null
-            BitmapFactory.decodeFile(path)?.asImageBitmap()
+        val photo = remember(imagePath, context) {
+            val file = imagePath?.let { FaceTemplateStore.resolveImageFile(context, it) } ?: return@remember null
+            BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
         }
 
-        if (photo != null) {
-            Image(
-                bitmap = photo,
-                contentDescription = label,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(168.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, Color(0xFFD0D9E8), RoundedCornerShape(12.dp)),
-            )
-        } else {
-            FaceMeshPreview(signature = signature)
+        when {
+            photo != null -> {
+                Image(
+                    bitmap = photo,
+                    contentDescription = label,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(168.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, Color(0xFFD0D9E8), RoundedCornerShape(12.dp)),
+                )
+            }
+
+            signature.isNotEmpty() -> FaceMeshPreview(signature = signature)
+
+            else -> {
+                Box(
+                    modifier = Modifier
+                        .size(168.dp)
+                        .background(Color(0xFFE8EDF4), RoundedCornerShape(12.dp))
+                        .border(1.dp, Color(0xFFD0D9E8), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "No preview",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF607088),
+                    )
+                }
+            }
         }
         Text(
             text = label,

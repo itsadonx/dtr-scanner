@@ -1,17 +1,17 @@
 package com.dtr.scanner.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Visibility
@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlin.math.max
 import com.dtr.scanner.data.FaceEnrollmentInput
 import com.dtr.scanner.data.FaceProfile
 import com.dtr.scanner.data.FaceTemplateStore
@@ -228,16 +229,25 @@ private fun FaceTemplatesDialog(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(bottom = 12.dp),
                 )
-                if (templates.isEmpty()) {
+                val slotCount = max(templates.size, imagePaths.size)
+                if (slotCount == 0) {
                     Text("No readable templates. Re-register this person.")
                 } else {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        itemsIndexed(templates) { index, template ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        repeat(slotCount) { index ->
                             FaceTemplatePreview(
-                                signature = template,
-                                label = FaceSignature.templateLabel(index, templates.size),
-                                imagePath = imagePaths.getOrNull(index)
-                                    ?: imagePaths.lastOrNull(),
+                                signature = templates.getOrNull(index) ?: FloatArray(0),
+                                label = FaceSignature.templateLabel(
+                                    index = index,
+                                    totalTemplates = max(templates.size, slotCount),
+                                ),
+                                imagePath = imagePaths.getOrNull(index),
                             )
                         }
                     }
