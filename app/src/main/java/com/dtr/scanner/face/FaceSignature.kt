@@ -104,6 +104,47 @@ object FaceSignature {
     fun isCurrentFormat(raw: String): Boolean =
         raw.startsWith(SIGNATURE_VERSION_PREFIX) || raw.startsWith(SIGNATURE_MULTI_PREFIX)
 
+    /**
+     * Splits a flat signature back into ML Kit contour polylines (same order as [contourTypes]).
+     */
+    fun splitIntoContours(signature: FloatArray): List<List<NormPoint>> {
+        if (signature.size < 4) return emptyList()
+        val expectedFloats = contourPointCounts.sum() * 2
+        if (signature.size != expectedFloats) {
+            return listOf(signatureToPointsFallback(signature))
+        }
+        val contours = ArrayList<List<NormPoint>>(contourPointCounts.size)
+        var index = 0
+        for (count in contourPointCounts) {
+            val points = ArrayList<NormPoint>(count)
+            repeat(count) {
+                points.add(NormPoint(signature[index], signature[index + 1]))
+                index += 2
+            }
+            contours.add(points)
+        }
+        return contours
+    }
+
+    data class NormPoint(val x: Float, val y: Float)
+
+    fun templateLabel(index: Int, totalTemplates: Int): String {
+        return when {
+            totalTemplates > ENROLLMENT_SAMPLES && index == totalTemplates - 1 -> "Blended average"
+            else -> "Capture ${index + 1}"
+        }
+    }
+
+    private fun signatureToPointsFallback(signature: FloatArray): List<NormPoint> {
+        val points = ArrayList<NormPoint>(signature.size / 2)
+        var i = 0
+        while (i + 1 < signature.size) {
+            points.add(NormPoint(signature[i], signature[i + 1]))
+            i += 2
+        }
+        return points
+    }
+
     fun distance(a: FloatArray, b: FloatArray): Float {
         if (a.size != b.size) return Float.MAX_VALUE
         var sum = 0f
@@ -154,6 +195,16 @@ object FaceSignature {
         }
         return MatchResult(displayName = bestName, ambiguous = false)
     }
+
+    /** Point counts per [contourTypes] entry (ML Kit face mesh). */
+    private val contourPointCounts = listOf(
+        36, // FACE
+        5, 5, 5, 5, // eyebrows
+        16, 16, // eyes
+        2, 5, // nose
+        11, 9, 9, 11, // lips
+        1, 1, // cheeks
+    )
 
     private const val SIGNATURE_VERSION_PREFIX = "2|"
     private const val SIGNATURE_MULTI_PREFIX = "2m|"

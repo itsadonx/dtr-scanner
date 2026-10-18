@@ -218,11 +218,11 @@ private fun FaceTemplatesDialog(
                 if (templates.isEmpty()) {
                     Text("No readable templates. Re-register this person.")
                 } else {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         itemsIndexed(templates) { index, template ->
                             FaceTemplatePreview(
                                 signature = template,
-                                label = "Template ${index + 1}",
+                                label = FaceSignature.templateLabel(index, templates.size),
                             )
                         }
                     }
