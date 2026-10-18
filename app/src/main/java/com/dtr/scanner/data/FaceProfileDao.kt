@@ -1,0 +1,18 @@
+package com.dtr.scanner.data
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface FaceProfileDao {
+    @Query("SELECT * FROM face_profiles ORDER BY displayName ASC")
+    fun observeAll(): Flow<List<FaceProfile>>
+
+    @Insert
+    suspend fun insert(profile: FaceProfile): Long
+
+    @Query("DELETE FROM face_profiles WHERE id = :id")
+    suspend fun deleteById(id: Long)
+}

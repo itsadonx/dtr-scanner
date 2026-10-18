@@ -6,8 +6,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.AlertDialog
@@ -19,9 +23,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,12 +36,17 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dtr.scanner.ui.HistoryScreen
-import com.dtr.scanner.ui.ScannerScreen
+import com.dtr.scanner.ui.PeopleScreen
+import com.dtr.scanner.ui.ScanHubScreen
 import com.dtr.scanner.ui.theme.DtrScannerTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
+
+private const val TAB_SCAN = 0
+private const val TAB_PEOPLE = 1
+private const val TAB_HISTORY = 2
 
 class MainActivity : ComponentActivity() {
 
@@ -53,8 +59,11 @@ class MainActivity : ComponentActivity() {
             DtrScannerTheme {
                 val viewModel: ScanViewModel = viewModel()
                 val records by viewModel.records.collectAsStateWithLifecycle()
-                var selectedTab by remember { mutableIntStateOf(0) }
+                val faceProfiles by viewModel.faceProfiles.collectAsStateWithLifecycle()
+                var selectedTab by remember { mutableIntStateOf(TAB_SCAN) }
                 var showClearDialog by remember { mutableStateOf(false) }
+                var faceStatus by remember { mutableStateOf("Look at the front camera to check in.") }
+                var enrollStatus by remember { mutableStateOf("Hold still until your face is detected.") }
 
                 val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
 
@@ -64,7 +73,7 @@ class MainActivity : ComponentActivity() {
                         TopAppBar(
                             title = { Text(stringResource(R.string.app_name)) },
                             actions = {
-                                if (selectedTab == 1 && records.isNotEmpty()) {
+                                if (selectedTab == TAB_HISTORY && records.isNotEmpty()) {
                                     TextButton(onClick = { showClearDialog = true }) {
                                         Text("Clear all")
                                     }
@@ -75,16 +84,24 @@ class MainActivity : ComponentActivity() {
                     bottomBar = {
                         NavigationBar {
                             NavigationBarItem(
-                                selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
+                                selected = selectedTab == TAB_SCAN,
+                                onClick = { selectedTab = TAB_SCAN },
                                 icon = {
                                     Icon(Icons.Default.CameraAlt, contentDescription = null)
                                 },
                                 label = { Text("Scan") },
                             )
                             NavigationBarItem(
-                                selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
+                                selected = selectedTab == TAB_PEOPLE,
+                                onClick = { selectedTab = TAB_PEOPLE },
+                                icon = {
+                                    Icon(Icons.Default.Face, contentDescription = null)
+                                },
+                                label = { Text("People") },
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == TAB_HISTORY,
+                                onClick = { selectedTab = TAB_HISTORY },
                                 icon = {
                                     Icon(Icons.Default.History, contentDescription = null)
                                 },
@@ -94,20 +111,67 @@ class MainActivity : ComponentActivity() {
                     },
                 ) { innerPadding ->
                     when (selectedTab) {
-                        0 -> {
+                        TAB_SCAN -> {
                             if (cameraPermission.status.isGranted) {
-                                ScannerScreen(
+                                ScanHubScreen(
+                                    faceProfiles = faceProfiles,
+                                    faceStatus = faceStatus,
                                     onQrScanned = { content ->
                                         viewModel.saveScan(content)
                                         Toast.makeText(
                                             this,
-                                            "Saved at ${formatNow()}",
+                                            "QR saved at ${formatNow()}",
                                             Toast.LENGTH_SHORT,
                                         ).show()
+                                    },
+                                    onFaceRecognized = { name ->
+                                        if (viewModel.saveFaceRecognition(name)) {
+                                            faceStatus = "Recognized: $name"
+                                            Toast.makeText(
+                                                this,
+                                                "$name checked in at ${formatNow()}",
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
+                                        }
+                                    },
+                                    onFaceUnknown = {
+                                        faceStatus = "Face not recognized — enroll on People tab."
                                     },
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(innerPadding),
+                                )
+                            } else {
+                                CameraPermissionContent(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(innerPadding),
+                                    showRationale = cameraPermission.status.shouldShowRationale,
+                                    onRequest = { cameraPermission.launchPermissionRequest() },
+                                )
+                            }
+                        }
+
+                        TAB_PEOPLE -> {
+                            if (cameraPermission.status.isGranted) {
+                                PeopleScreen(
+                                    profiles = faceProfiles,
+                                    enrollStatus = enrollStatus,
+                                    onEnroll = { name, signature ->
+                                        viewModel.enrollFace(name, signature)
+                                        enrollStatus = "Saved $name. You can enroll another person."
+                                        Toast.makeText(
+                                            this,
+                                            "Enrolled $name",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    },
+                                    onFaceSampled = {
+                                        enrollStatus = "Face detected — enter a name and tap Save."
+                                    },
+                                    onDeleteProfile = viewModel::deleteFaceProfile,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = innerPadding,
                                 )
                             } else {
                                 CameraPermissionContent(
@@ -133,7 +197,7 @@ class MainActivity : ComponentActivity() {
                     AlertDialog(
                         onDismissRequest = { showClearDialog = false },
                         title = { Text("Clear all records?") },
-                        text = { Text("This removes every saved QR scan from this device.") },
+                        text = { Text("This removes every saved QR scan and face check-in from this device.") },
                         confirmButton = {
                             TextButton(
                                 onClick = {
@@ -168,7 +232,7 @@ private fun CameraPermissionContent(
     ) {
         Text(
             text = if (showRationale) {
-                "Camera access is required to scan QR codes for DTR."
+                "Camera access is required for QR scanning and face check-in."
             } else {
                 "Allow camera permission to start scanning."
             },

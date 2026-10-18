@@ -9,4 +9,5 @@ data class ScanRecord(
     val id: Long = 0,
     val content: String,
     val scannedAtEpochMs: Long,
+    val scanType: String = ScanType.QR,
 )

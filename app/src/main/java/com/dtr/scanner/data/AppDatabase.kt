@@ -6,12 +6,14 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [ScanRecord::class],
-    version = 1,
+    entities = [ScanRecord::class, FaceProfile::class],
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun scanDao(): ScanDao
+
+    abstract fun faceProfileDao(): FaceProfileDao
 
     companion object {
         @Volatile
@@ -23,7 +25,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "dtr_scanner.db",
-                ).build().also { instance = it }
+                )
+                    .addMigrations(MIGRATION_1_2)
+                    .build().also { instance = it }
             }
         }
     }

@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dtr.scanner.data.ScanRecord
+import com.dtr.scanner.data.ScanType
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -47,7 +48,7 @@ fun HistoryScreen(
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                text = "Successful QR reads appear here with the exact scan time.",
+                text = "QR scans and face check-ins appear here with the exact time.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp),
@@ -76,10 +77,12 @@ private fun ScanRecordRow(
         .atZone(ZoneId.systemDefault())
         .format(dtrTimeFormatter)
 
+    val typeLabel = if (record.scanType == ScanType.FACE) "Face" else "QR"
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                text = localTime,
+                text = "$localTime · $typeLabel",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
