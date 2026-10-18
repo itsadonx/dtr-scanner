@@ -22,6 +22,7 @@
     <string name="qr_scans">QR Scans</string>
     <string name="face_scans">Face Scans</string>
     <string name="recent_scans">Recent Scans</string>
+    <string name="view_all">View All</string>
     <string name="no_recent_scans">No scans yet today.</string>
     <string name="nav_dashboard">Dashboard</string>
     <string name="nav_history">History</string>

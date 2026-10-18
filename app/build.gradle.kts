@@ -1,6 +1,3 @@
-import java.io.FileInputStream
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -8,10 +5,10 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-val appVersion = Properties().apply {
+val appVersion = java.util.Properties().apply {
     val versionFile = rootProject.file("version.properties")
     if (versionFile.exists()) {
-        FileInputStream(versionFile).use { load(it) }
+        java.io.FileInputStream(versionFile).use { load(it) }
     }
 }
 val appVersionCode = appVersion.getProperty("VERSION_CODE", "1").toInt()

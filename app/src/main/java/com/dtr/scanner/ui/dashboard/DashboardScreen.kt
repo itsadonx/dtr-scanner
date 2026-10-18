@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,7 +49,9 @@ import com.dtr.scanner.data.ScanRecord
 import com.dtr.scanner.data.ScanType
 import com.dtr.scanner.ui.components.DevelopedByFooter
 import com.dtr.scanner.ui.theme.RoyalBlue
+import com.dtr.scanner.ui.theme.RoyalBlueDark
 import com.dtr.scanner.ui.theme.ScreenBackground
+import com.dtr.scanner.ui.theme.SkyAccent
 import com.dtr.scanner.ui.theme.SuccessGreen
 import com.dtr.scanner.ui.theme.SuccessGreenBg
 import com.dtr.scanner.ui.theme.TextMuted
@@ -69,6 +72,7 @@ fun DashboardScreen(
     records: List<ScanRecord>,
     onScanQr: () -> Unit,
     onScanFace: () -> Unit,
+    onViewAllHistory: () -> Unit = {},
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
@@ -172,6 +176,8 @@ fun DashboardScreen(
                     subtitle = stringResource(R.string.employee_attendance),
                     icon = Icons.Default.Face,
                     onClick = onScanFace,
+                    containerColor = Color(0xFFDBEAFE),
+                    contentColor = RoyalBlueDark,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -196,11 +202,23 @@ fun DashboardScreen(
         }
 
         item {
-            Text(
-                text = stringResource(R.string.recent_scans),
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.recent_scans),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                )
+                if (records.isNotEmpty()) {
+                    TextButton(onClick = onViewAllHistory) {
+                        Text(stringResource(R.string.view_all), color = RoyalBlue)
+                    }
+                }
+            }
         }
 
         if (records.isEmpty()) {
@@ -254,6 +272,8 @@ private fun ActionCard(
     subtitle: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
+    containerColor: Color = RoyalBlue,
+    contentColor: Color = Color.White,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -261,7 +281,7 @@ private fun ActionCard(
             .height(130.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = RoyalBlue),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {
         Column(
             modifier = Modifier
@@ -269,14 +289,18 @@ private fun ActionCard(
                 .padding(14.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+            Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(32.dp))
             Column {
                 Text(
                     title,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White,
+                    color = contentColor,
                 )
-                Text(subtitle, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.85f))
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = contentColor.copy(alpha = 0.85f),
+                )
             }
         }
     }

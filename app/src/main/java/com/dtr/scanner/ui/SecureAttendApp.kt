@@ -210,6 +210,7 @@ fun SecureAttendApp() {
                 records = records,
                 onScanQr = { activeScan = ActiveScan.QR },
                 onScanFace = { activeScan = ActiveScan.FACE },
+                onViewAllHistory = { selectedTab = TAB_HISTORY },
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = innerPadding,
             )
@@ -317,9 +318,10 @@ private fun FaceScanContent(
                 return@FaceRecognitionScreen
             }
             if (enrolled.isEmpty()) return@FaceRecognitionScreen
-            when (val result = FaceSignature.match(probe, enrolled)) {
-                result.ambiguous -> onFaceAmbiguous()
+            val result = FaceSignature.match(probe, enrolled)
+            when {
                 result.displayName != null -> onRecognized(result.displayName)
+                result.ambiguous -> onFaceAmbiguous()
                 else -> onFaceUnknown()
             }
         },
