@@ -73,37 +73,38 @@ fun ScanFrameOverlay(
             }
         }
 
-        ColumnBottomText(instruction, statusLine)
+        ColumnTopText(instruction = instruction, statusLine = statusLine)
     }
 }
 
 @Composable
-private fun ColumnBottomText(instruction: String, statusLine: String?) {
+private fun ColumnTopText(instruction: String, statusLine: String?) {
     Box(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.BottomCenter,
+        contentAlignment = Alignment.TopCenter,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .padding(horizontal = 24.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (!statusLine.isNullOrBlank()) {
-                Text(
-                    text = statusLine,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.92f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-            }
+            val primary = statusLine?.takeIf { it.isNotBlank() } ?: instruction
             Text(
-                text = instruction,
+                text = primary,
                 style = MaterialTheme.typography.titleSmall,
                 color = Color.White,
                 textAlign = TextAlign.Center,
             )
+            if (!statusLine.isNullOrBlank() && instruction.isNotBlank()) {
+                Text(
+                    text = instruction,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.82f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
         }
     }
 }

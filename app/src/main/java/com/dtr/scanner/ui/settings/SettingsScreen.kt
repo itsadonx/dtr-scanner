@@ -31,6 +31,7 @@ fun SettingsScreen(
     onDeleteProfile: (Long) -> Unit,
     onFaceSampleProgress: (Int, Int) -> Unit,
     onLivenessHint: (String) -> Unit,
+    onStartCaptureSession: () -> Unit = {},
     onClearHistory: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
@@ -53,6 +54,7 @@ fun SettingsScreen(
             onFaceSampleProgress = onFaceSampleProgress,
             onLivenessHint = onLivenessHint,
             enrollLivenessSession = enrollLivenessSession,
+            onStartCaptureSession = onStartCaptureSession,
             modifier = Modifier.weight(1f),
             contentPadding = contentPadding,
         )

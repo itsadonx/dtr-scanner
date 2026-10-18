@@ -258,8 +258,12 @@ fun SecureAttendApp() {
                             }
                         },
                         onDeleteProfile = viewModel::deleteFaceProfile,
+                        onStartCaptureSession = {
+                            enrollLivenessSession++
+                            enrollStatus = "Blink and move your head to start enrollment."
+                        },
                         onFaceSampleProgress = { captured, total ->
-                            enrollStatus = "Sample $captured of $total — enter name and save."
+                            enrollStatus = "Sample $captured of $total — tap Save when done."
                         },
                         onLivenessHint = { enrollStatus = it },
                         onClearHistory = { showClearDialog = true },

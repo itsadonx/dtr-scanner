@@ -27,10 +27,13 @@ object FaceSignature {
     )
 
     /** Lower is a closer match. Same person is usually under [MATCH_THRESHOLD]. */
-    const val MATCH_THRESHOLD = 0.20f
+    const val MATCH_THRESHOLD = 0.26f
+
+    /** Strong match — accept even if runner-up is close. */
+    private const val STRONG_MATCH_THRESHOLD = 0.14f
 
     /** Best match must beat the runner-up by at least this much (when multiple people enrolled). */
-    const val MIN_MATCH_MARGIN = 0.025f
+    const val MIN_MATCH_MARGIN = 0.018f
 
     const val ENROLLMENT_SAMPLES = 5
 
@@ -43,7 +46,7 @@ object FaceSignature {
         // Use the same pose bounds for enroll and check-in so stored templates match live probes.
         val maxYaw = 18f
         val maxPitch = 18f
-        val minFaceWidth = if (mode == ExtractMode.MATCH) 100 else 120
+        val minFaceWidth = 72
 
         if (abs(face.headEulerAngleY) > maxYaw) return null
         if (abs(face.headEulerAngleX) > maxPitch) return null
@@ -101,8 +104,12 @@ object FaceSignature {
         return if (single == null) emptyList() else listOf(single)
     }
 
-    fun isCurrentFormat(raw: String): Boolean =
-        raw.startsWith(SIGNATURE_VERSION_PREFIX) || raw.startsWith(SIGNATURE_MULTI_PREFIX)
+    fun isCurrentFormat(raw: String): Boolean {
+        if (raw.startsWith(SIGNATURE_MULTI_PREFIX)) return true
+        if (!raw.startsWith(SIGNATURE_VERSION_PREFIX)) return false
+        // Avoid treating multi templates (2m|) as legacy single — only "2|" not "2m|".
+        return raw.length < 3 || raw[2] != 'm'
+    }
 
     /**
      * Splits a flat signature back into ML Kit contour polylines (same order as [contourTypes]).
@@ -190,8 +197,11 @@ object FaceSignature {
         if (bestDistance > MATCH_THRESHOLD) {
             return MatchResult(displayName = null, ambiguous = false)
         }
-        if (ranked.size > 1 && (secondDistance - bestDistance) < MIN_MATCH_MARGIN) {
-            return MatchResult(displayName = null, ambiguous = true)
+        if (ranked.size > 1) {
+            val margin = secondDistance - bestDistance
+            if (margin < MIN_MATCH_MARGIN && bestDistance > STRONG_MATCH_THRESHOLD) {
+                return MatchResult(displayName = null, ambiguous = true)
+            }
         }
         return MatchResult(displayName = bestName, ambiguous = false)
     }

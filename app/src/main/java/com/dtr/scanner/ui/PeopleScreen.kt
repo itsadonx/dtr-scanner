@@ -21,13 +21,14 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -55,15 +56,21 @@ fun PeopleScreen(
     onFaceSampleProgress: (Int, Int) -> Unit = { _, _ -> },
     onLivenessHint: (String) -> Unit = {},
     enrollLivenessSession: Int = 0,
+    onStartCaptureSession: () -> Unit = {},
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
-    var fullName by remember { mutableStateOf("") }
-    var area by remember { mutableStateOf("") }
-    var businessUnit by remember { mutableStateOf("") }
+    var fullName by rememberSaveable { mutableStateOf("") }
+    var area by rememberSaveable { mutableStateOf("") }
+    var businessUnit by rememberSaveable { mutableStateOf("") }
+    var showCaptureCamera by rememberSaveable(enrollLivenessSession) { mutableStateOf(false) }
     var samples by remember(enrollLivenessSession) { mutableStateOf(listOf<FloatArray>()) }
     var templateJpegs by remember(enrollLivenessSession) { mutableStateOf(listOf<ByteArray>()) }
     var templatesDialogProfile by remember { mutableStateOf<FaceProfile?>(null) }
+
+    val detailsComplete = fullName.isNotBlank() &&
+        area.isNotBlank() &&
+        businessUnit.isNotBlank()
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -82,49 +89,22 @@ fun PeopleScreen(
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = "Employee ID is assigned automatically when you save. " +
-                            "Blink, turn left/right, nod up/down, then hold still for " +
-                            "${FaceSignature.ENROLLMENT_SAMPLES} samples.",
+                        text = "Enter employee details first. Employee ID is assigned when you save.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
-                    )
-                    FaceRecognitionScreen(
-                        statusText = enrollStatus,
-                        livenessSessionKey = enrollLivenessSession,
-                        onLivenessHint = onLivenessHint,
-                        extractMode = ExtractMode.ENROLL,
-                        livenessMode = LivenessMode.ENROLLMENT,
-                        captureFaceThumbnail = true,
-                        onFaceCapture = { capture ->
-                            if (samples.size >= FaceSignature.ENROLLMENT_SAMPLES) return@FaceRecognitionScreen
-                            val signature = capture.signature
-                            val consistent = samples.isEmpty() ||
-                                FaceSignature.distance(samples.last(), signature) < 0.14f
-                            if (!consistent) return@FaceRecognitionScreen
-                            samples = samples + signature
-                            capture.thumbnailJpeg?.let { jpeg ->
-                                templateJpegs = templateJpegs + jpeg
-                            }
-                            onFaceSampleProgress(samples.size, FaceSignature.ENROLLMENT_SAMPLES)
-                        },
-                        onFaceSignature = {},
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(280.dp)
-                            .padding(bottom = 8.dp),
+                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
                     )
                     OutlinedTextField(
                         value = fullName,
                         onValueChange = { fullName = it },
-                        label = { Text("Full name") },
+                        label = { Text("Full name *") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     OutlinedTextField(
                         value = area,
                         onValueChange = { area = it },
-                        label = { Text("Area") },
+                        label = { Text("Area *") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -133,7 +113,7 @@ fun PeopleScreen(
                     OutlinedTextField(
                         value = businessUnit,
                         onValueChange = { businessUnit = it },
-                        label = { Text("Business unit (BU)") },
+                        label = { Text("Business unit (BU) *") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -141,12 +121,70 @@ fun PeopleScreen(
                     )
                     Button(
                         onClick = {
+                            showCaptureCamera = true
+                            onStartCaptureSession()
+                        },
+                        enabled = detailsComplete && !showCaptureCamera,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                    ) {
+                        Text("Start face capture")
+                    }
+                    if (showCaptureCamera) {
+                        Text(
+                            text = "Blink, turn left/right, nod up/down, then hold still for " +
+                                "${FaceSignature.ENROLLMENT_SAMPLES} samples.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
+                        )
+                        FaceRecognitionScreen(
+                            statusText = enrollStatus,
+                            livenessSessionKey = enrollLivenessSession,
+                            onLivenessHint = onLivenessHint,
+                            extractMode = ExtractMode.ENROLL,
+                            livenessMode = LivenessMode.ENROLLMENT,
+                            captureFaceThumbnail = true,
+                            onFaceCapture = { capture ->
+                                if (samples.size >= FaceSignature.ENROLLMENT_SAMPLES) {
+                                    return@FaceRecognitionScreen
+                                }
+                                val signature = capture.signature
+                                val consistent = samples.isEmpty() ||
+                                    FaceSignature.distance(samples.last(), signature) < 0.16f
+                                if (!consistent) return@FaceRecognitionScreen
+                                samples = samples + signature
+                                capture.thumbnailJpeg?.let { jpeg ->
+                                    templateJpegs = templateJpegs + jpeg
+                                }
+                                onFaceSampleProgress(samples.size, FaceSignature.ENROLLMENT_SAMPLES)
+                            },
+                            onFaceSignature = {},
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(280.dp)
+                                .padding(bottom = 8.dp),
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                showCaptureCamera = false
+                                samples = emptyList()
+                                templateJpegs = emptyList()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Cancel capture")
+                        }
+                    }
+                    Button(
+                        onClick = {
                             val trimmed = fullName.trim()
                             if (trimmed.isNotEmpty() && samples.size >= FaceSignature.ENROLLMENT_SAMPLES) {
                                 val input = FaceEnrollmentInput(
                                     fullName = trimmed,
-                                    area = area,
-                                    businessUnit = businessUnit,
+                                    area = area.trim(),
+                                    businessUnit = businessUnit.trim(),
                                     signatures = samples,
                                     templateJpegs = templateJpegs,
                                 )
@@ -156,11 +194,15 @@ fun PeopleScreen(
                                     businessUnit = ""
                                     samples = emptyList()
                                     templateJpegs = emptyList()
+                                    showCaptureCamera = false
                                 }
                             }
                         },
-                        enabled = fullName.isNotBlank() && samples.size >= FaceSignature.ENROLLMENT_SAMPLES,
-                        modifier = Modifier.padding(top = 8.dp),
+                        enabled = detailsComplete &&
+                            samples.size >= FaceSignature.ENROLLMENT_SAMPLES,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
                     ) {
                         Text("Save registration")
                     }
