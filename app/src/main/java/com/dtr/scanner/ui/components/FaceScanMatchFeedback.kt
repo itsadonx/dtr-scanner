@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,6 +26,7 @@ import com.dtr.scanner.R
 
 sealed interface FaceScanOutcome {
     data class Recognized(val displayName: String) : FaceScanOutcome
+    data class RecentDuplicate(val displayName: String) : FaceScanOutcome
     data object NotRecognized : FaceScanOutcome
 }
 
@@ -61,6 +63,29 @@ fun FaceScanMatchFeedback(
                         color = Color.White,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+
+                is FaceScanOutcome.RecentDuplicate -> {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = stringResource(R.string.face_scan_duplicate_cd),
+                        tint = Color(0xFFFFB74D),
+                        modifier = Modifier.size(88.dp),
+                    )
+                    Text(
+                        text = outcome.displayName,
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.face_scan_duplicate_message),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.9f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 8.dp),
                     )
                 }
 

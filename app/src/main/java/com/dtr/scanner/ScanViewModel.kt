@@ -25,11 +25,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     val faceProfiles = faceDao.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    @Volatile
-    private var lastFaceSaveMs: Long = 0L
-
-    @Volatile
-    private var lastFaceName: String? = null
+    private val recentFaceCheckIns = mutableMapOf<String, Long>()
 
     fun saveScan(content: String, scanType: String = ScanType.QR) {
         val trimmed = content.trim()
@@ -45,18 +41,31 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun isFaceCheckInDuplicate(displayName: String): Boolean {
+        val trimmed = displayName.trim()
+        if (trimmed.isEmpty()) return false
+        pruneExpiredFaceCheckIns()
+        val lastMs = recentFaceCheckIns[trimmed] ?: return false
+        return System.currentTimeMillis() - lastMs < FACE_DUPLICATE_COOLDOWN_MS
+    }
+
     /** Returns true when a new face attendance row was saved. */
     fun saveFaceRecognition(displayName: String): Boolean {
         val trimmed = displayName.trim()
         if (trimmed.isEmpty()) return false
-        val now = System.currentTimeMillis()
-        if (trimmed == lastFaceName && now - lastFaceSaveMs < FACE_DUPLICATE_COOLDOWN_MS) {
+        if (isFaceCheckInDuplicate(trimmed)) {
             return false
         }
-        lastFaceName = trimmed
-        lastFaceSaveMs = now
+        recentFaceCheckIns[trimmed] = System.currentTimeMillis()
+        pruneExpiredFaceCheckIns()
         saveScan("Face check-in: $trimmed", ScanType.FACE)
         return true
+    }
+
+    private fun pruneExpiredFaceCheckIns() {
+        val now = System.currentTimeMillis()
+        val expired = recentFaceCheckIns.filterValues { now - it >= FACE_DUPLICATE_COOLDOWN_MS }.keys
+        expired.forEach { recentFaceCheckIns.remove(it) }
     }
 
     fun enrollFace(
@@ -108,6 +117,6 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
-        private const val FACE_DUPLICATE_COOLDOWN_MS = 2_500L
+        private const val FACE_DUPLICATE_COOLDOWN_MS = 60_000L
     }
 }

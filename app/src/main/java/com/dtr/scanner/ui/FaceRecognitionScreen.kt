@@ -9,6 +9,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.res.stringResource
 import com.dtr.scanner.R
 import com.dtr.scanner.ui.components.ScanFrameOverlay
@@ -57,7 +58,7 @@ fun FaceRecognitionScreen(
         CameraSelector.LENS_FACING_BACK
     }
 
-    val faceAnalyzer = remember(livenessTracker, livenessMode, extractMode, captureFaceThumbnail) {
+    val faceAnalyzer = remember(livenessTracker, livenessMode, extractMode, captureFaceThumbnail, useFrontCamera) {
         FaceAnalyzer(
             livenessTracker = livenessTracker,
             onLivenessHint = { hint ->
@@ -90,6 +91,7 @@ fun FaceRecognitionScreen(
     val bannerText = liveHint ?: statusText
 
     Box(modifier = modifier.fillMaxSize()) {
+        key(lensFacing) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
@@ -134,6 +136,7 @@ fun FaceRecognitionScreen(
                 )
             },
         )
+        }
 
         ScanFrameOverlay(
             instruction = stringResource(R.string.scan_face_instruction),

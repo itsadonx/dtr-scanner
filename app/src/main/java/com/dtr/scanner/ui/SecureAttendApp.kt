@@ -68,6 +68,7 @@ fun SecureAttendApp() {
     var enrollStatus by rememberSaveable { mutableStateOf("Blink and move your head to start enrollment.") }
     var faceLivenessSession by rememberSaveable { mutableIntStateOf(0) }
     var enrollLivenessSession by rememberSaveable { mutableIntStateOf(0) }
+    var faceScanUseFrontCamera by rememberSaveable { mutableStateOf(true) }
 
     val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
 
@@ -115,15 +116,31 @@ fun SecureAttendApp() {
                     faceProfiles = faceProfiles,
                     faceStatus = faceStatus,
                     faceLivenessSession = faceLivenessSession,
+                    useFrontCamera = faceScanUseFrontCamera,
+                    onUseFrontCameraChange = { useFront ->
+                        faceScanUseFrontCamera = useFront
+                        faceLivenessSession++
+                        faceStatus = "Blink once to check in."
+                    },
+                    isDuplicateCheckIn = viewModel::isFaceCheckInDuplicate,
                     onLivenessHint = { faceStatus = it },
                     onRecognized = { name ->
-                        val saved = viewModel.saveFaceRecognition(name)
-                        val message = if (saved) {
-                            "$name checked in at ${formatNow()}"
-                        } else {
-                            "$name recognized — ready for next scan"
+                        if (viewModel.saveFaceRecognition(name)) {
+                            Toast.makeText(
+                                context,
+                                "$name checked in at ${formatNow()}",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                            faceStatus = "Checked in — ready for next face."
                         }
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    },
+                    onDuplicateCheckIn = {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.face_scan_duplicate_toast),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                        faceStatus = "Duplicate blocked — scan next person."
                     },
                     onRescanReady = { faceLivenessSession++ },
                     onFaceUnknown = {
@@ -297,6 +314,10 @@ private fun FaceScanContent(
     onFaceAmbiguous: () -> Unit,
     onNeedsReEnroll: () -> Unit,
     onRescanReady: () -> Unit = {},
+    isDuplicateCheckIn: (String) -> Boolean = { false },
+    onDuplicateCheckIn: (String) -> Unit = {},
+    useFrontCamera: Boolean = true,
+    onUseFrontCameraChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val enrolled = androidx.compose.runtime.remember(faceProfiles) {
@@ -320,6 +341,10 @@ private fun FaceScanContent(
         onFaceAmbiguous = onFaceAmbiguous,
         onNeedsReEnroll = onNeedsReEnroll,
         onRescanReady = onRescanReady,
+        isDuplicateCheckIn = isDuplicateCheckIn,
+        onDuplicateCheckIn = onDuplicateCheckIn,
+        useFrontCamera = useFrontCamera,
+        onUseFrontCameraChange = onUseFrontCameraChange,
         modifier = modifier,
     )
 }

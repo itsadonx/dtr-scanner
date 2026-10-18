@@ -35,4 +35,9 @@
     <string name="face_scan_not_recognized">Not recognized</string>
     <string name="face_scan_success_cd">Face recognized</string>
     <string name="face_scan_failed_cd">Face not recognized</string>
+    <string name="face_scan_duplicate_cd">Duplicate check-in blocked</string>
+    <string name="face_scan_duplicate_message">Already checked in — wait 1 minute</string>
+    <string name="face_scan_duplicate_toast">Same person already checked in within 1 minute.</string>
+    <string name="camera_front">Front</string>
+    <string name="camera_back">Back</string>
 </resources>
