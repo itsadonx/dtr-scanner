@@ -36,6 +36,7 @@ import com.dtr.scanner.face.FaceSignature
 import com.dtr.scanner.ui.components.SecureTopBar
 import com.dtr.scanner.ui.dashboard.DashboardScreen
 import com.dtr.scanner.ui.login.LoginScreen
+import com.dtr.scanner.speech.rememberAttendanceSpeechAnnouncer
 import com.dtr.scanner.ui.settings.SettingsScreen
 import com.dtr.scanner.ui.theme.RoyalBlue
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -71,6 +72,7 @@ fun SecureAttendApp() {
     var faceScanUseFrontCamera by rememberSaveable { mutableStateOf(true) }
 
     val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
+    val speechAnnouncer = rememberAttendanceSpeechAnnouncer()
 
     if (!loggedIn) {
         LoginScreen(onLogin = { id ->
@@ -128,6 +130,7 @@ fun SecureAttendApp() {
                     onLivenessHint = { faceStatus = it },
                     onRecognized = { name ->
                         if (viewModel.saveFaceRecognition(name, records)) {
+                            speechAnnouncer.announceFaceCheckIn(name)
                             Toast.makeText(
                                 context,
                                 "$name checked in at ${formatNow()}",
@@ -325,6 +328,7 @@ fun SecureAttendApp() {
                                 onComplete(result)
                             }
                         },
+                        speechAnnouncer = speechAnnouncer,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = innerPadding,
                     )

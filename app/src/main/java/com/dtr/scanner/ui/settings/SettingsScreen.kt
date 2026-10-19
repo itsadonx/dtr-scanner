@@ -31,6 +31,7 @@ import com.dtr.scanner.data.FaceProfile
 import com.dtr.scanner.ui.theme.TextMuted
 import com.dtr.scanner.ui.PeopleScreen
 import com.dtr.scanner.ui.components.DevelopedByFooter
+import com.dtr.scanner.speech.AttendanceSpeechAnnouncer
 import com.dtr.scanner.ui.theme.ScreenBackground
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -48,6 +49,7 @@ fun SettingsScreen(
     onClearHistory: () -> Unit,
     onExportBackup: (Uri, (Result<FaceDataBackup.ImportSummary>) -> Unit) -> Unit,
     onImportBackup: (Uri, (Result<FaceDataBackup.ImportSummary>) -> Unit) -> Unit,
+    speechAnnouncer: AttendanceSpeechAnnouncer,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
@@ -91,6 +93,8 @@ fun SettingsScreen(
             modifier = Modifier.weight(1f),
             contentPadding = contentPadding,
         )
+        VoiceAnnouncementSettings(announcer = speechAnnouncer)
+
         Text(
             text = stringResource(R.string.settings_backup_section),
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
