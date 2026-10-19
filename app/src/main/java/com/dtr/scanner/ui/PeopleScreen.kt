@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -67,7 +68,8 @@ fun PeopleScreen(
     var fullName by rememberSaveable { mutableStateOf("") }
     var area by rememberSaveable { mutableStateOf("") }
     var businessUnit by rememberSaveable { mutableStateOf("") }
-    var showCaptureCamera by rememberSaveable(enrollLivenessSession) { mutableStateOf(false) }
+    // Must not key off enrollLivenessSession: Start capture bumps the session and would reset this to false.
+    var showCaptureCamera by rememberSaveable { mutableStateOf(false) }
     var samples by remember(enrollLivenessSession) { mutableStateOf(listOf<FloatArray>()) }
     var templateJpegs by remember(enrollLivenessSession) { mutableStateOf(listOf<ByteArray>()) }
     var templatesDialogProfile by remember { mutableStateOf<FaceProfile?>(null) }
@@ -152,38 +154,40 @@ fun PeopleScreen(
                             secondaryLine = stringResource(R.string.scan_face_instruction),
                             modifier = Modifier.padding(bottom = 4.dp),
                         )
-                        FaceRecognitionScreen(
-                            statusText = enrollStatus,
-                            livenessSessionKey = enrollLivenessSession,
-                            onLivenessHint = { hint ->
-                                captureHint = hint
-                                onLivenessHint(hint)
-                            },
-                            extractMode = ExtractMode.ENROLL,
-                            livenessMode = LivenessMode.ENROLLMENT,
-                            useDedicatedHintBar = false,
-                            showOverlayHints = false,
-                            captureFaceThumbnail = true,
-                            onFaceCapture = { capture ->
-                                if (samples.size >= FaceSignature.ENROLLMENT_SAMPLES) {
-                                    return@FaceRecognitionScreen
-                                }
-                                val signature = capture.signature
-                                val consistent = samples.isEmpty() ||
-                                    FaceSignature.distance(samples.last(), signature) < 0.18f
-                                if (!consistent) return@FaceRecognitionScreen
-                                samples = samples + signature
-                                capture.thumbnailJpeg?.let { jpeg ->
-                                    templateJpegs = templateJpegs + jpeg
-                                }
-                                onFaceSampleProgress(samples.size, FaceSignature.ENROLLMENT_SAMPLES)
-                            },
-                            onFaceSignature = {},
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(280.dp)
-                                .padding(bottom = 8.dp),
-                        )
+                        key(enrollLivenessSession) {
+                            FaceRecognitionScreen(
+                                statusText = enrollStatus,
+                                livenessSessionKey = enrollLivenessSession,
+                                onLivenessHint = { hint ->
+                                    captureHint = hint
+                                    onLivenessHint(hint)
+                                },
+                                extractMode = ExtractMode.ENROLL,
+                                livenessMode = LivenessMode.ENROLLMENT,
+                                useDedicatedHintBar = false,
+                                showOverlayHints = false,
+                                captureFaceThumbnail = true,
+                                onFaceCapture = { capture ->
+                                    if (samples.size >= FaceSignature.ENROLLMENT_SAMPLES) {
+                                        return@FaceRecognitionScreen
+                                    }
+                                    val signature = capture.signature
+                                    val consistent = samples.isEmpty() ||
+                                        FaceSignature.distance(samples.last(), signature) < 0.18f
+                                    if (!consistent) return@FaceRecognitionScreen
+                                    samples = samples + signature
+                                    capture.thumbnailJpeg?.let { jpeg ->
+                                        templateJpegs = templateJpegs + jpeg
+                                    }
+                                    onFaceSampleProgress(samples.size, FaceSignature.ENROLLMENT_SAMPLES)
+                                },
+                                onFaceSignature = {},
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(280.dp)
+                                    .padding(bottom = 8.dp),
+                            )
+                        }
                         OutlinedButton(
                             onClick = {
                                 showCaptureCamera = false

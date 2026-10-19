@@ -22,7 +22,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -167,7 +166,7 @@ fun FaceRecognitionScreen(
                     instruction = "",
                     statusLine = null,
                     showHintText = false,
-                    modifier = Modifier.align(Alignment.Center),
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
@@ -182,7 +181,7 @@ fun FaceRecognitionScreen(
                 instruction = stringResource(R.string.scan_face_instruction),
                 statusLine = primaryHint,
                 showHintText = overlayHints,
-                modifier = Modifier.align(Alignment.Center),
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }
