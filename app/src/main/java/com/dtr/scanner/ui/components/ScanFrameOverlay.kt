@@ -19,6 +19,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,51 +34,66 @@ fun ScanFrameOverlay(
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
-        Canvas(
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
-        ) {
-            val scrim = Color.Black.copy(alpha = 0.58f)
-            drawRect(scrim)
-
-            val frameSize = size.minDimension * 0.68f
-            val left = (size.width - frameSize) / 2f
-            val top = (size.height - frameSize) / 2f - size.height * 0.06f
-            val cutout = Rect(Offset(left, top), Size(frameSize, frameSize))
-            drawRoundRect(
-                color = Color.Transparent,
-                topLeft = cutout.topLeft,
-                size = cutout.size,
-                cornerRadius = CornerRadius(12f, 12f),
-                blendMode = BlendMode.Clear,
-            )
-
-            val stroke = 5f
-            val corner = frameSize * 0.14f
-            val c = RoyalBlue
-            fun cornerLines(x: Float, y: Float, flipX: Int, flipY: Int) {
-                drawLine(c, Offset(x, y), Offset(x + flipX * corner, y), strokeWidth = stroke)
-                drawLine(c, Offset(x, y), Offset(x, y + flipY * corner), strokeWidth = stroke)
-            }
-            cornerLines(cutout.left, cutout.top, 1, 1)
-            cornerLines(cutout.right, cutout.top, -1, 1)
-            cornerLines(cutout.left, cutout.bottom, 1, -1)
-            cornerLines(cutout.right, cutout.bottom, -1, -1)
-
-            if (statusLine != null) {
-                drawLine(
-                    color = SkyAccent.copy(alpha = 0.85f),
-                    start = Offset(cutout.left + 16f, cutout.center.y),
-                    end = Offset(cutout.right - 16f, cutout.center.y),
-                    strokeWidth = 3f,
-                )
-            }
-        }
-
+        ScanFrameCanvas(
+            showScanLine = !statusLine.isNullOrBlank(),
+            modifier = Modifier.fillMaxSize(),
+        )
         if (showHintText) {
-            ColumnTopText(instruction = instruction, statusLine = statusLine)
+            ColumnTopText(
+                instruction = instruction,
+                statusLine = statusLine,
+            )
         }
+    }
+}
+
+@Composable
+private fun ScanFrameCanvas(
+    showScanLine: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(
+        modifier = modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
+    ) {
+        drawScanFrame(showScanLine = showScanLine)
+    }
+}
+
+private fun DrawScope.drawScanFrame(showScanLine: Boolean) {
+    val scrim = Color.Black.copy(alpha = 0.58f)
+    drawRect(scrim)
+
+    val frameSize = size.minDimension * 0.68f
+    val left = (size.width - frameSize) / 2f
+    val top = (size.height - frameSize) / 2f - size.height * 0.06f
+    val cutout = Rect(Offset(left, top), Size(frameSize, frameSize))
+    drawRoundRect(
+        color = Color.Transparent,
+        topLeft = cutout.topLeft,
+        size = cutout.size,
+        cornerRadius = CornerRadius(12f, 12f),
+        blendMode = BlendMode.Clear,
+    )
+
+    val stroke = 5f
+    val corner = frameSize * 0.14f
+    val c = RoyalBlue
+    fun cornerLines(x: Float, y: Float, flipX: Int, flipY: Int) {
+        drawLine(c, Offset(x, y), Offset(x + flipX * corner, y), strokeWidth = stroke)
+        drawLine(c, Offset(x, y), Offset(x, y + flipY * corner), strokeWidth = stroke)
+    }
+    cornerLines(cutout.left, cutout.top, 1, 1)
+    cornerLines(cutout.right, cutout.top, -1, 1)
+    cornerLines(cutout.left, cutout.bottom, 1, -1)
+    cornerLines(cutout.right, cutout.bottom, -1, -1)
+
+    if (showScanLine) {
+        drawLine(
+            color = SkyAccent.copy(alpha = 0.85f),
+            start = Offset(cutout.left + 16f, cutout.center.y),
+            end = Offset(cutout.right - 16f, cutout.center.y),
+            strokeWidth = 3f,
+        )
     }
 }
 
@@ -105,7 +121,7 @@ private fun ColumnTopText(instruction: String, statusLine: String?) {
                 Text(
                     text = instruction,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.82f),
+                    color = Color.White.copy(alpha = 0.85f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 6.dp),
                 )
