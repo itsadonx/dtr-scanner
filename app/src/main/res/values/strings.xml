@@ -28,7 +28,8 @@
     <string name="nav_history">History</string>
     <string name="nav_settings">Settings</string>
     <string name="settings_face_enrollment">Face registration</string>
-    <string name="settings_sections_title">Choose a section</string>
+    <string name="settings_sections_title">Choose: Registration, Voice, or Database</string>
+    <string name="settings_installed_version">Installed app: %1$s (build %2$d)</string>
     <string name="settings_tab_faces">Registration</string>
     <string name="settings_tab_voice">Voice</string>
     <string name="settings_tab_database">Database</string>
