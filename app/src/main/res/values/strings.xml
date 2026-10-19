@@ -40,4 +40,15 @@
     <string name="face_scan_duplicate_toast">Same person already checked in within 1 minute.</string>
     <string name="camera_front">Front</string>
     <string name="camera_back">Back</string>
+    <string name="enrollment_guide_good">Good!</string>
+    <string name="enrollment_guide_blink">Blink once</string>
+    <string name="enrollment_guide_turn_left">Turn your head left</string>
+    <string name="enrollment_guide_turn_right">Turn your head right</string>
+    <string name="enrollment_guide_nod_up">Nod your head up</string>
+    <string name="enrollment_guide_nod_down">Nod your head down</string>
+    <string name="enrollment_guide_next_left">Next: turn your head left</string>
+    <string name="enrollment_guide_next_right">Next: turn your head right</string>
+    <string name="enrollment_guide_next_up">Next: nod up</string>
+    <string name="enrollment_guide_next_down">Next: nod down</string>
+    <string name="enrollment_guide_next_samples">Next: hold still for face samples</string>
 </resources>

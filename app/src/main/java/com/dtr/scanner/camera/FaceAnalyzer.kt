@@ -3,6 +3,7 @@ package com.dtr.scanner.camera
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
+import com.dtr.scanner.face.EnrollmentGuideState
 import com.dtr.scanner.face.FaceCapture
 import com.dtr.scanner.face.FaceLivenessTracker
 import com.dtr.scanner.face.FaceSignature
@@ -14,6 +15,7 @@ import com.google.mlkit.vision.face.FaceDetectorOptions
 class FaceAnalyzer(
     private val livenessTracker: FaceLivenessTracker,
     private val onLivenessHint: (String) -> Unit,
+    private val onEnrollmentGuide: ((EnrollmentGuideState?) -> Unit)? = null,
     private val onLiveFaceCapture: (FaceCapture) -> Unit,
     private val consumeLivenessAfterCapture: Boolean = false,
     private val extractMode: ExtractMode = ExtractMode.MATCH,
@@ -43,6 +45,9 @@ class FaceAnalyzer(
     @Volatile
     private var lastHint: String? = null
 
+    @Volatile
+    private var lastEnrollmentGuide: EnrollmentGuideState? = null
+
     @OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
         val mediaImage = imageProxy.image
@@ -60,11 +65,15 @@ class FaceAnalyzer(
             .addOnSuccessListener { faces ->
                 val face = faces.maxByOrNull { it.boundingBox.width() } ?: run {
                     publishHint("Position your face in the camera.")
+                    if (livenessMode == FaceLivenessTracker.Mode.ENROLLMENT) {
+                        publishEnrollmentGuide(EnrollmentGuideState.initial())
+                    }
                     return@addOnSuccessListener
                 }
 
                 val liveness = livenessTracker.process(face)
                 publishHint(liveness.hint)
+                publishEnrollmentGuide(liveness.enrollmentGuide)
 
                 if (!liveness.verified) {
                     return@addOnSuccessListener
@@ -122,6 +131,12 @@ class FaceAnalyzer(
         if (hint == lastHint) return
         lastHint = hint
         onLivenessHint(hint)
+    }
+
+    private fun publishEnrollmentGuide(guide: EnrollmentGuideState?) {
+        if (guide == lastEnrollmentGuide) return
+        lastEnrollmentGuide = guide
+        onEnrollmentGuide?.invoke(guide)
     }
 
     companion object {

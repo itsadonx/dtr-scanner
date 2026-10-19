@@ -141,8 +141,8 @@ fun PeopleScreen(
                     }
                     if (showCaptureCamera) {
                         Text(
-                            text = "After the live check, look straight at the camera for " +
-                                "${FaceSignature.ENROLLMENT_SAMPLES} samples (blink/head motion first).",
+                            text = "Follow the arrows on screen (blink, turn head, nod). Then hold still for " +
+                                "${FaceSignature.ENROLLMENT_SAMPLES} face samples.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),

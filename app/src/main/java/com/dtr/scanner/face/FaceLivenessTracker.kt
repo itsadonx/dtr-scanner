@@ -36,6 +36,13 @@ class FaceLivenessTracker {
     private var lastYawSample: Float? = null
     private var verifiedUntilMs: Long = 0L
     private var photoRejectedUntilMs: Long = 0L
+    private var leftTurnDone = false
+    private var rightTurnDone = false
+    private var upNodDone = false
+    private var downNodDone = false
+    private var celebrateStep: EnrollmentGuideStep? = null
+    private var celebrateUntilMs: Long = 0L
+    private var previousDoneMask: Int = 0
 
     fun isVerified(nowMs: Long = System.currentTimeMillis()): Boolean = nowMs < verifiedUntilMs
 
@@ -56,6 +63,13 @@ class FaceLivenessTracker {
         lastRightEye = null
         lastYawSample = null
         verifiedUntilMs = 0L
+        leftTurnDone = false
+        rightTurnDone = false
+        upNodDone = false
+        downNodDone = false
+        celebrateStep = null
+        celebrateUntilMs = 0L
+        previousDoneMask = 0
     }
 
     fun process(face: Face, nowMs: Long = System.currentTimeMillis()): LivenessUpdate {
@@ -68,10 +82,19 @@ class FaceLivenessTracker {
         }
 
         if (isVerified(nowMs)) {
+            val verifiedHint = when (mode) {
+                Mode.ENROLLMENT -> "Live check passed — hold still for face samples."
+                Mode.CHECK_IN -> "Live check passed — matching face…"
+            }
             return LivenessUpdate(
-                hint = "Live check passed — matching face…",
+                hint = verifiedHint,
                 verified = true,
                 rejectedPhoto = false,
+                enrollmentGuide = if (mode == Mode.ENROLLMENT) {
+                    buildEnrollmentGuide(nowMs, livenessComplete = true)
+                } else {
+                    null
+                },
             )
         }
 
@@ -99,9 +122,14 @@ class FaceLivenessTracker {
         if (challengeOk) {
             verifiedUntilMs = nowMs + VERIFICATION_WINDOW_MS
             return LivenessUpdate(
-                hint = "Live check passed — matching face…",
+                hint = "Live check passed — hold still for face samples.",
                 verified = true,
                 rejectedPhoto = false,
+                enrollmentGuide = if (mode == Mode.ENROLLMENT) {
+                    buildEnrollmentGuide(nowMs, livenessComplete = true)
+                } else {
+                    null
+                },
             )
         }
 
@@ -111,17 +139,17 @@ class FaceLivenessTracker {
                 else -> "Verifying…"
             }
 
-            Mode.ENROLLMENT -> when {
-                !sawBlink -> "Blink once, then move your head to enroll."
-                !hasYawChallenge() -> "Slowly turn your head left, then right."
-                !hasPitchChallenge() -> "Slowly nod up, then down."
-                else -> "Verifying…"
-            }
+            Mode.ENROLLMENT -> enrollmentStepHint(nowMs)
         }
         return LivenessUpdate(
             hint = hint,
             verified = false,
             rejectedPhoto = false,
+            enrollmentGuide = if (mode == Mode.ENROLLMENT) {
+                buildEnrollmentGuide(nowMs, livenessComplete = false)
+            } else {
+                null
+            },
         )
     }
 
@@ -211,12 +239,102 @@ class FaceLivenessTracker {
         maxHeadYaw = maxOf(maxHeadYaw, yaw)
         minHeadPitch = minOf(minHeadPitch, pitch)
         maxHeadPitch = maxOf(maxHeadPitch, pitch)
+        referenceYaw?.let { ref ->
+            if (minHeadYaw <= ref - MIN_YAW_EACH_SIDE_DEGREES) {
+                leftTurnDone = true
+            }
+            if (maxHeadYaw >= ref + MIN_YAW_EACH_SIDE_DEGREES) {
+                rightTurnDone = true
+            }
+        }
+        referencePitch?.let { ref ->
+            if (minHeadPitch <= ref - MIN_PITCH_EACH_SIDE_DEGREES) {
+                upNodDone = true
+            }
+            if (maxHeadPitch >= ref + MIN_PITCH_EACH_SIDE_DEGREES) {
+                downNodDone = true
+            }
+        }
+    }
+
+    private fun enrollmentStepHint(nowMs: Long): String {
+        val guide = buildEnrollmentGuide(nowMs, livenessComplete = false)
+        return when (guide.activeStep) {
+            EnrollmentGuideStep.BLINK -> "Blink once to begin."
+            EnrollmentGuideStep.TURN_LEFT -> "Turn your head to the left."
+            EnrollmentGuideStep.TURN_RIGHT -> "Turn your head to the right."
+            EnrollmentGuideStep.NOD_UP -> "Nod your head up."
+            EnrollmentGuideStep.NOD_DOWN -> "Nod your head down."
+            null -> "Follow the on-screen arrows."
+        }
+    }
+
+    private fun buildEnrollmentGuide(nowMs: Long, livenessComplete: Boolean): EnrollmentGuideState {
+        updateCelebration(nowMs)
+        val done = linkedMapOf(
+            EnrollmentGuideStep.BLINK to sawBlink,
+            EnrollmentGuideStep.TURN_LEFT to leftTurnDone,
+            EnrollmentGuideStep.TURN_RIGHT to rightTurnDone,
+            EnrollmentGuideStep.NOD_UP to upNodDone,
+            EnrollmentGuideStep.NOD_DOWN to downNodDone,
+        )
+        val firstIncomplete = done.entries.firstOrNull { !it.value }?.key
+        val steps = done.map { (step, completed) ->
+            val status = when {
+                livenessComplete || completed -> EnrollmentStepStatus.DONE
+                step == firstIncomplete -> EnrollmentStepStatus.ACTIVE
+                else -> EnrollmentStepStatus.PENDING
+            }
+            EnrollmentGuideState.EnrollmentStepState(step, status)
+        }
+        val celebrating = if (nowMs < celebrateUntilMs) celebrateStep else null
+        return EnrollmentGuideState(
+            steps = steps,
+            activeStep = if (livenessComplete) null else firstIncomplete,
+            celebrateStep = if (livenessComplete) null else celebrating,
+            livenessComplete = livenessComplete,
+        )
+    }
+
+    private fun updateCelebration(nowMs: Long) {
+        val mask = doneMask()
+        val newlyDone = mask and previousDoneMask.inv()
+        previousDoneMask = mask
+        if (newlyDone == 0) {
+            if (nowMs >= celebrateUntilMs) {
+                celebrateStep = null
+            }
+            return
+        }
+        val step = when {
+            newlyDone and BLINK_BIT != 0 -> EnrollmentGuideStep.BLINK
+            newlyDone and LEFT_BIT != 0 -> EnrollmentGuideStep.TURN_LEFT
+            newlyDone and RIGHT_BIT != 0 -> EnrollmentGuideStep.TURN_RIGHT
+            newlyDone and UP_BIT != 0 -> EnrollmentGuideStep.NOD_UP
+            newlyDone and DOWN_BIT != 0 -> EnrollmentGuideStep.NOD_DOWN
+            else -> null
+        }
+        if (step != null) {
+            celebrateStep = step
+            celebrateUntilMs = nowMs + CELEBRATION_MS
+        }
+    }
+
+    private fun doneMask(): Int {
+        var mask = 0
+        if (sawBlink) mask = mask or BLINK_BIT
+        if (leftTurnDone) mask = mask or LEFT_BIT
+        if (rightTurnDone) mask = mask or RIGHT_BIT
+        if (upNodDone) mask = mask or UP_BIT
+        if (downNodDone) mask = mask or DOWN_BIT
+        return mask
     }
 
     data class LivenessUpdate(
         val hint: String,
         val verified: Boolean,
         val rejectedPhoto: Boolean,
+        val enrollmentGuide: EnrollmentGuideState? = null,
     )
 
     companion object {
@@ -230,5 +348,11 @@ class FaceLivenessTracker {
         private const val STATIC_FRAME_LIMIT = 45
         private const val VERIFICATION_WINDOW_MS = 5_000L
         private const val PHOTO_REJECT_COOLDOWN_MS = 2_500L
+        private const val CELEBRATION_MS = 1_200L
+        private const val BLINK_BIT = 1 shl 0
+        private const val LEFT_BIT = 1 shl 1
+        private const val RIGHT_BIT = 1 shl 2
+        private const val UP_BIT = 1 shl 3
+        private const val DOWN_BIT = 1 shl 4
     }
 }

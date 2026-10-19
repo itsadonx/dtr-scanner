@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.graphics.Color
+import com.dtr.scanner.ui.components.EnrollmentDirectionGuide
 import com.dtr.scanner.ui.components.FaceScanHintBar
+import com.dtr.scanner.face.EnrollmentGuideState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.res.stringResource
@@ -58,6 +60,15 @@ fun FaceRecognitionScreen(
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
     val livenessTracker = remember { FaceLivenessTracker() }
     var liveHint by remember { mutableStateOf<String?>(null) }
+    var enrollmentGuide by remember(livenessSessionKey, livenessMode) {
+        mutableStateOf(
+            if (livenessMode == LivenessMode.ENROLLMENT) {
+                EnrollmentGuideState.initial()
+            } else {
+                null
+            },
+        )
+    }
 
     val lensFacing = if (useFrontCamera) {
         CameraSelector.LENS_FACING_FRONT
@@ -79,6 +90,9 @@ fun FaceRecognitionScreen(
                 liveHint = hint
                 onLivenessHint(hint)
             },
+            onEnrollmentGuide = { guide ->
+                enrollmentGuide = guide
+            },
             onLiveFaceCapture = { capture ->
                 onFaceCapture?.invoke(capture) ?: onFaceSignature(capture.signature)
             },
@@ -94,6 +108,7 @@ fun FaceRecognitionScreen(
     DisposableEffect(livenessSessionKey) {
         livenessTracker.resetChallenge()
         liveHint = null
+        enrollmentGuide = null
         onDispose { }
     }
 
@@ -177,6 +192,12 @@ fun FaceRecognitionScreen(
                     showHintText = false,
                     modifier = Modifier.fillMaxSize(),
                 )
+                if (livenessMode == LivenessMode.ENROLLMENT) {
+                    EnrollmentDirectionGuide(
+                        state = enrollmentGuide,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
     } else {
@@ -192,6 +213,12 @@ fun FaceRecognitionScreen(
                 showHintText = overlayHints,
                 modifier = Modifier.fillMaxSize(),
             )
+            if (livenessMode == LivenessMode.ENROLLMENT) {
+                EnrollmentDirectionGuide(
+                    state = enrollmentGuide,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }
