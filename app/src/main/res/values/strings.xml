@@ -28,6 +28,9 @@
     <string name="nav_history">History</string>
     <string name="nav_settings">Settings</string>
     <string name="settings_face_enrollment">Face registration</string>
+    <string name="settings_tab_faces">Face registration</string>
+    <string name="settings_tab_voice">Voice settings</string>
+    <string name="settings_tab_database">Database settings</string>
     <string name="clear_all_history">Clear all attendance history</string>
     <string name="settings_voice_section">Voice announcement</string>
     <string name="settings_voice_hint">Speaks the person\'s name when face check-in succeeds.</string>
@@ -40,6 +43,8 @@
     <string name="settings_voice_phrase_checked_in">Checked In</string>
     <string name="settings_voice_thank_you">Say \"Thank you!\"</string>
     <string name="settings_voice_time_24h">Use 24-hour time</string>
+    <string name="settings_voice_male">Prefer male voice</string>
+    <string name="settings_voice_thank_pause">Pause before thank you</string>
     <string name="settings_voice_preview_sample">Example: %1$s</string>
     <string name="settings_voice_test">Test voice</string>
     <string name="settings_backup_section">Backup &amp; restore</string>

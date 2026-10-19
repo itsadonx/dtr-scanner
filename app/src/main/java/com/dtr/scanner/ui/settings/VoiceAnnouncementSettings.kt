@@ -19,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dtr.scanner.R
 import com.dtr.scanner.speech.AttendancePhrase
@@ -39,18 +38,15 @@ fun VoiceAnnouncementSettings(
     var phrase by remember { mutableStateOf(prefs.attendancePhrase) }
     var thankYou by remember { mutableStateOf(prefs.sayThankYou) }
     var use24Hour by remember { mutableStateOf(prefs.use24HourTime) }
+    var preferMale by remember { mutableStateOf(prefs.preferMaleVoice) }
+    var thankPauseMs by remember { mutableFloatStateOf(prefs.thankYouPauseMs.toFloat()) }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.settings_voice_section),
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-            modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp),
-        )
         Text(
             text = stringResource(R.string.settings_voice_hint),
             style = MaterialTheme.typography.bodySmall,
             color = TextMuted,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         )
 
         VoiceToggleRow(
@@ -115,12 +111,31 @@ fun VoiceAnnouncementSettings(
         }
 
         VoiceToggleRow(
+            label = stringResource(R.string.settings_voice_male),
+            checked = preferMale,
+            onCheckedChange = {
+                preferMale = it
+                prefs.preferMaleVoice = it
+            },
+        )
+
+        VoiceToggleRow(
             label = stringResource(R.string.settings_voice_thank_you),
             checked = thankYou,
             onCheckedChange = {
                 thankYou = it
                 prefs.sayThankYou = it
             },
+        )
+
+        VoiceSliderRow(
+            label = stringResource(R.string.settings_voice_thank_pause),
+            value = thankPauseMs,
+            valueRange = SpeechPreferences.MIN_THANK_PAUSE_MS.toFloat()..
+                SpeechPreferences.MAX_THANK_PAUSE_MS.toFloat(),
+            onValueChange = { thankPauseMs = it },
+            onValueChangeFinished = { prefs.thankYouPauseMs = thankPauseMs.toLong() },
+            valueLabel = "${thankPauseMs.toInt()} ms",
         )
 
         VoiceToggleRow(
@@ -132,7 +147,7 @@ fun VoiceAnnouncementSettings(
             },
         )
 
-        val previewText = remember(phrase, thankYou, use24Hour, rate, pitch) {
+        val previewText = remember(phrase, thankYou, use24Hour, rate, pitch, thankPauseMs, preferMale) {
             prefs.buildAnnouncement("Adonnis Pama")
         }
         Text(
