@@ -20,6 +20,7 @@ class FaceAnalyzer(
     private val livenessMode: FaceLivenessTracker.Mode = FaceLivenessTracker.Mode.CHECK_IN,
     private val captureFaceThumbnail: Boolean = false,
     private val mirrorForFrontCamera: Boolean = true,
+    private val matchTemplateFloatCount: Int? = null,
 ) : ImageAnalysis.Analyzer {
 
     init {
@@ -69,8 +70,18 @@ class FaceAnalyzer(
                     return@addOnSuccessListener
                 }
 
-                val signature = FaceSignature.extract(face, extractMode) ?: run {
-                    publishHint("Face the camera and move a little closer.")
+                val signature = FaceSignature.extract(
+                    face,
+                    extractMode,
+                    matchTemplateFloatCount = matchTemplateFloatCount,
+                ) ?: run {
+                    publishHint(
+                        if (extractMode == ExtractMode.MATCH) {
+                            "Look straight at the camera, eyes open, good lighting, move a little closer."
+                        } else {
+                            "Face the camera directly, hold still, and move a little closer."
+                        },
+                    )
                     return@addOnSuccessListener
                 }
                 if (extractMode == ExtractMode.ENROLL && !FaceSignature.isFrontalForEnrollment(face)) {

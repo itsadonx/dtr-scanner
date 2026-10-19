@@ -44,7 +44,7 @@ fun ScanHubScreen(
     }
 
     val hasLegacyProfiles = remember(faceProfiles) {
-        faceProfiles.any { !FaceSignature.isCurrentFormat(it.signature) }
+        faceProfiles.any { !FaceSignature.isPreferredFormat(it.signature) }
     }
 
     Column(modifier = modifier.fillMaxSize()) {

@@ -50,6 +50,7 @@ fun FaceRecognitionScreen(
     useFrontCamera: Boolean = true,
     useDedicatedHintBar: Boolean = true,
     showOverlayHints: Boolean? = null,
+    matchTemplateFloatCount: Int? = null,
 ) {
     val overlayHints = showOverlayHints ?: !useDedicatedHintBar
     val context = LocalContext.current
@@ -64,7 +65,14 @@ fun FaceRecognitionScreen(
         CameraSelector.LENS_FACING_BACK
     }
 
-    val faceAnalyzer = remember(livenessTracker, livenessMode, extractMode, captureFaceThumbnail, useFrontCamera) {
+    val faceAnalyzer = remember(
+        livenessTracker,
+        livenessMode,
+        extractMode,
+        captureFaceThumbnail,
+        useFrontCamera,
+        matchTemplateFloatCount,
+    ) {
         FaceAnalyzer(
             livenessTracker = livenessTracker,
             onLivenessHint = { hint ->
@@ -79,6 +87,7 @@ fun FaceRecognitionScreen(
             livenessMode = livenessMode,
             captureFaceThumbnail = captureFaceThumbnail,
             mirrorForFrontCamera = useFrontCamera,
+            matchTemplateFloatCount = matchTemplateFloatCount,
         )
     }
 

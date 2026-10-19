@@ -330,10 +330,11 @@ private fun FaceScanContent(
         faceProfiles.toMatchCatalog()
     }
     val hasLegacy = faceProfiles.any {
-        FaceSignature.isLegacyFormat(it.signature) || !FaceSignature.isCurrentFormat(it.signature)
+        FaceSignature.isLegacyFormat(it.signature) || !FaceSignature.isPreferredFormat(it.signature)
     }
     val status = when {
-        hasLegacy && enrolled.isEmpty() -> "Re-register everyone in Settings (face format updated)."
+        hasLegacy && enrolled.isEmpty() -> "Re-register everyone in Settings (v5 face templates required)."
+        hasLegacy -> "Re-register faces in Settings (v5) for accurate attendance matching."
         enrolled.isEmpty() -> "Register faces in Settings first (${faceProfiles.size} on file, 0 templates)."
         else -> faceStatus
     }

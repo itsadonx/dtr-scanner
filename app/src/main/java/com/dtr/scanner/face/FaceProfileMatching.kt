@@ -5,7 +5,10 @@ import com.dtr.scanner.data.FaceProfile
 fun FaceProfile.matchTemplates(): List<Pair<String, FloatArray>> {
     if (FaceSignature.isLegacyFormat(signature)) return emptyList()
     return FaceSignature.decodeAll(signature)
-        .filter { it.size == FaceSignature.signatureFloatCount }
+        .filter {
+            it.size == FaceSignature.signatureFloatCount ||
+                it.size == FaceSignature.v5SignatureFloatCount
+        }
         .map { fullName to it }
 }
 

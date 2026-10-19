@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -50,6 +51,18 @@ fun FaceCheckInScanner(
 ) {
     var outcome by remember(livenessSessionKey) { mutableStateOf<FaceScanOutcome?>(null) }
     var afterFailure by remember(livenessSessionKey) { mutableStateOf<(() -> Unit)?>(null) }
+    var consensusName by remember(livenessSessionKey) { mutableStateOf<String?>(null) }
+    var consensusCount by remember(livenessSessionKey) { mutableIntStateOf(0) }
+    var unknownStreak by remember(livenessSessionKey) { mutableIntStateOf(0) }
+
+    val matchTemplateFloatCount = remember(enrolled) {
+        val sizes = enrolled.map { it.second.size }.toSet()
+        when {
+            sizes.contains(FaceSignature.v5SignatureFloatCount) -> FaceSignature.v5SignatureFloatCount
+            sizes.contains(FaceSignature.signatureFloatCount) -> FaceSignature.signatureFloatCount
+            else -> FaceSignature.v5SignatureFloatCount
+        }
+    }
 
     LaunchedEffect(outcome) {
         when (val current = outcome) {
@@ -87,6 +100,7 @@ fun FaceCheckInScanner(
             consumeLivenessAfterCapture = true,
             extractMode = ExtractMode.MATCH,
             useFrontCamera = useFrontCamera,
+            matchTemplateFloatCount = matchTemplateFloatCount,
             onFaceSignature = { probe ->
                 if (outcome != null) return@FaceRecognitionScreen
                 if (hasLegacyProfiles && enrolled.isEmpty()) {
@@ -95,21 +109,43 @@ fun FaceCheckInScanner(
                 }
                 if (enrolled.isEmpty()) return@FaceRecognitionScreen
                 val result = FaceSignature.match(probe, enrolled)
-                outcome = when {
-                    result.displayName != null && isDuplicateCheckIn(result.displayName) ->
-                        FaceScanOutcome.RecentDuplicate(result.displayName)
-
-                    result.displayName != null ->
-                        FaceScanOutcome.Recognized(result.displayName)
-
+                when {
                     result.ambiguous -> {
+                        consensusName = null
+                        consensusCount = 0
+                        unknownStreak = 0
                         afterFailure = onFaceAmbiguous
-                        FaceScanOutcome.NotRecognized
+                        outcome = FaceScanOutcome.NotRecognized
+                    }
+
+                    result.displayName != null -> {
+                        unknownStreak = 0
+                        if (consensusName == result.displayName) {
+                            consensusCount++
+                        } else {
+                            consensusName = result.displayName
+                            consensusCount = 1
+                        }
+                        if (consensusCount < MATCH_CONSENSUS_FRAMES) return@FaceRecognitionScreen
+                        consensusName = null
+                        consensusCount = 0
+                        outcome = when {
+                            isDuplicateCheckIn(result.displayName) ->
+                                FaceScanOutcome.RecentDuplicate(result.displayName)
+
+                            else -> FaceScanOutcome.Recognized(result.displayName)
+                        }
                     }
 
                     else -> {
-                        afterFailure = onFaceUnknown
-                        FaceScanOutcome.NotRecognized
+                        consensusName = null
+                        consensusCount = 0
+                        unknownStreak++
+                        if (unknownStreak >= UNKNOWN_STREAK_LIMIT) {
+                            unknownStreak = 0
+                            afterFailure = onFaceUnknown
+                            outcome = FaceScanOutcome.NotRecognized
+                        }
                     }
                 }
             },
@@ -160,3 +196,8 @@ fun FaceCheckInScanner(
 private const val SUCCESS_DISPLAY_MS = 1_600L
 private const val FAIL_DISPLAY_MS = 1_400L
 private const val DUPLICATE_DISPLAY_MS = 1_600L
+
+/** Require repeated agreement before check-in to reduce one-frame mis-identification. */
+private const val MATCH_CONSENSUS_FRAMES = 5
+
+private const val UNKNOWN_STREAK_LIMIT = 5
