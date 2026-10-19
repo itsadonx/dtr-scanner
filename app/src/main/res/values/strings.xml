@@ -28,9 +28,10 @@
     <string name="nav_history">History</string>
     <string name="nav_settings">Settings</string>
     <string name="settings_face_enrollment">Face registration</string>
-    <string name="settings_tab_faces">Face registration</string>
-    <string name="settings_tab_voice">Voice settings</string>
-    <string name="settings_tab_database">Database settings</string>
+    <string name="settings_sections_title">Choose a section</string>
+    <string name="settings_tab_faces">Registration</string>
+    <string name="settings_tab_voice">Voice</string>
+    <string name="settings_tab_database">Database</string>
     <string name="clear_all_history">Clear all attendance history</string>
     <string name="settings_voice_section">Voice announcement</string>
     <string name="settings_voice_hint">Speaks the person\'s name when face check-in succeeds.</string>
