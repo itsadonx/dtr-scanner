@@ -269,6 +269,62 @@ fun SecureAttendApp() {
                         },
                         onLivenessHint = { enrollStatus = it },
                         onClearHistory = { showClearDialog = true },
+                        onExportBackup = { uri, onComplete ->
+                            viewModel.exportBackup(uri) { result ->
+                                result.fold(
+                                    onSuccess = { summary ->
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(
+                                                R.string.backup_export_success,
+                                                summary.faceProfilesImported,
+                                                summary.scanRecordsImported,
+                                            ),
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                    },
+                                    onFailure = { error ->
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(
+                                                R.string.backup_failed,
+                                                error.message ?: "Unknown error",
+                                            ),
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                    },
+                                )
+                                onComplete(result)
+                            }
+                        },
+                        onImportBackup = { uri, onComplete ->
+                            viewModel.importBackup(uri) { result ->
+                                result.fold(
+                                    onSuccess = { summary ->
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(
+                                                R.string.backup_import_success,
+                                                summary.faceProfilesImported,
+                                                summary.scanRecordsImported,
+                                            ),
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                    },
+                                    onFailure = { error ->
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(
+                                                R.string.backup_failed,
+                                                error.message ?: "Unknown error",
+                                            ),
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                    },
+                                )
+                                onComplete(result)
+                            }
+                        },
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = innerPadding,
                     )

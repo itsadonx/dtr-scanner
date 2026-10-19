@@ -11,9 +11,13 @@ import com.dtr.scanner.data.ScanRecord
 import com.dtr.scanner.data.ScanType
 import com.dtr.scanner.face.FaceCheckInPolicy
 import com.dtr.scanner.face.FaceSignature
+import android.net.Uri
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.dtr.scanner.data.FaceDataBackup
 
 class ScanViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.get(application)
@@ -143,6 +147,40 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     fun clearAll() {
         viewModelScope.launch {
             scanDao.deleteAll()
+        }
+    }
+
+    fun exportBackup(uri: Uri, onComplete: (Result<FaceDataBackup.ImportSummary>) -> Unit) {
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val app = getApplication<Application>()
+                    val profiles = faceDao.getAllOnce()
+                    val scans = scanDao.getAllOnce()
+                    app.contentResolver.openOutputStream(uri)?.use { output ->
+                        FaceDataBackup.export(app, output, profiles, scans)
+                    } ?: error("Could not open export destination.")
+                    FaceDataBackup.ImportSummary(
+                        faceProfilesImported = profiles.size,
+                        scanRecordsImported = scans.size,
+                    )
+                }
+            }
+            onComplete(result)
+        }
+    }
+
+    fun importBackup(uri: Uri, onComplete: (Result<FaceDataBackup.ImportSummary>) -> Unit) {
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val app = getApplication<Application>()
+                    app.contentResolver.openInputStream(uri)?.use { input ->
+                        FaceDataBackup.import(app, input)
+                    } ?: error("Could not read backup file.")
+                }
+            }
+            onComplete(result)
         }
     }
 

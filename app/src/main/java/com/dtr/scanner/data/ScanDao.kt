@@ -18,4 +18,7 @@ interface ScanDao {
 
     @Query("DELETE FROM scan_records")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM scan_records ORDER BY scannedAtEpochMs DESC")
+    suspend fun getAllOnce(): List<ScanRecord>
 }
