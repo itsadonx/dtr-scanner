@@ -29,16 +29,20 @@ object FaceSignature {
     )
     /** Lower is a closer match. Same person is usually under the threshold for their format. */
     const val MATCH_THRESHOLD = 0.10f
-    private const val MATCH_THRESHOLD_V5 = 0.085f
+    /** Slightly above typical enroll-sample spread so check-in matches registration. */
+    private const val MATCH_THRESHOLD_V5 = 0.105f
     /** Exceptionally close match; still requires separation when multiple people are enrolled. */
     private const val STRONG_MATCH_THRESHOLD = 0.075f
     private const val STRONG_MATCH_THRESHOLD_V5 = 0.068f
     /** Minimum score gap between 1st and 2nd person to avoid mis-identification. */
-    const val MIN_MATCH_MARGIN = 0.09f
+    const val MIN_MATCH_MARGIN = 0.055f
     /** Extra separation required when the best match is not a strong match. */
-    private const val MIN_MARGIN_WHEN_WEAK = 0.12f
+    private const val MIN_MARGIN_WHEN_WEAK = 0.085f
     /** Minimum gap between the best and second person's closest template distances. */
-    private const val MIN_BEST_TEMPLATE_GAP = 0.038f
+    private const val MIN_BEST_TEMPLATE_GAP = 0.024f
+    /** Required gap scales with how tight the best match is (multi-person catalogs). */
+    private const val RELATIVE_BEST_TEMPLATE_GAP = 0.2f
+    private const val RELATIVE_MATCH_MARGIN = 0.35f
     /** Max landmark distance between consecutive enrollment samples for one person. */
     const val ENROLL_SAMPLE_MAX_DISTANCE = 0.12f
     const val ENROLLMENT_SAMPLES = 5
@@ -64,7 +68,7 @@ object FaceSignature {
     fun hasOpenEyes(face: Face): Boolean {
         val left = face.leftEyeOpenProbability ?: return true
         val right = face.rightEyeOpenProbability ?: return true
-        return left >= 0.6f && right >= 0.6f
+        return left >= 0.45f && right >= 0.45f
     }
     val signatureFloatCount: Int = landmarkTypes.size * 2
     val v5SignatureFloatCount: Int =
@@ -74,14 +78,11 @@ object FaceSignature {
         mode: ExtractMode = ExtractMode.MATCH,
         matchTemplateFloatCount: Int? = null,
     ): FloatArray? {
-        val minFaceWidth = when (mode) {
-            ExtractMode.MATCH -> 112
-            ExtractMode.ENROLL -> 72
-        }
+        val minFaceWidth = 72
         if (face.boundingBox.width() < minFaceWidth) return null
         when (mode) {
             ExtractMode.MATCH -> {
-                if (!isFrontalForMatch(face) || !hasOpenEyes(face)) return null
+                if (!isFrontalForEnrollment(face) || !hasOpenEyes(face)) return null
             }
             ExtractMode.ENROLL -> {
                 if (!isFrontalForEnrollment(face)) return null
@@ -316,6 +317,8 @@ object FaceSignature {
         val displayName: String?,
         val profileId: Long? = null,
         val ambiguous: Boolean,
+        /** Lower is a closer match; used when comparing probes or formats. */
+        val bestDistance: Float = Float.MAX_VALUE,
     )
     private data class PersonScore(
         val profileId: Long,
@@ -323,6 +326,23 @@ object FaceSignature {
         val score: Float,
         val minDistance: Float,
     )
+    /** Tries each probe (e.g. v4 and v5) and returns the clearest match among them. */
+    fun matchAny(
+        probes: List<FloatArray>,
+        candidates: List<MatchCandidate>,
+    ): MatchResult {
+        if (probes.isEmpty() || candidates.isEmpty()) {
+            return MatchResult(displayName = null, ambiguous = false)
+        }
+        val perProbe = probes.map { match(it, candidates) }
+        val accepted = perProbe.filter { it.displayName != null && !it.ambiguous }
+        if (accepted.isNotEmpty()) {
+            return accepted.minBy { it.bestDistance }
+        }
+        return perProbe.firstOrNull { it.ambiguous }
+            ?: MatchResult(displayName = null, ambiguous = false)
+    }
+
     fun match(
         probe: FloatArray,
         candidates: List<MatchCandidate>,
@@ -354,24 +374,42 @@ object FaceSignature {
             .sortedWith(compareBy<PersonScore> { it.minDistance }.thenBy { it.score })
         val best = ranked.first()
         val second = ranked.getOrNull(1)
-        if (best.minDistance > matchThreshold || best.score > matchThreshold) {
+        if (best.minDistance > matchThreshold) {
             return MatchResult(displayName = null, ambiguous = false)
         }
         if (ranked.size == 1) {
-            return MatchResult(displayName = best.name, profileId = best.profileId, ambiguous = false)
+            return MatchResult(
+                displayName = best.name,
+                profileId = best.profileId,
+                ambiguous = false,
+                bestDistance = best.minDistance,
+            )
         }
         val templateGap = (second?.minDistance ?: Float.MAX_VALUE) - best.minDistance
-        if (templateGap < MIN_BEST_TEMPLATE_GAP) {
+        val requiredTemplateGap = maxOf(
+            MIN_BEST_TEMPLATE_GAP,
+            best.minDistance * RELATIVE_BEST_TEMPLATE_GAP,
+        )
+        if (templateGap < requiredTemplateGap) {
             return MatchResult(displayName = null, ambiguous = true)
         }
         val scoreMargin = (second?.score ?: Float.MAX_VALUE) - best.score
-        if (scoreMargin < MIN_MATCH_MARGIN) {
+        val requiredScoreMargin = maxOf(
+            MIN_MATCH_MARGIN,
+            best.score * RELATIVE_MATCH_MARGIN,
+        )
+        if (scoreMargin < requiredScoreMargin) {
             return MatchResult(displayName = null, ambiguous = true)
         }
         if (best.score > strongThreshold && scoreMargin < MIN_MARGIN_WHEN_WEAK) {
             return MatchResult(displayName = null, ambiguous = true)
         }
-        return MatchResult(displayName = best.name, profileId = best.profileId, ambiguous = false)
+        return MatchResult(
+            displayName = best.name,
+            profileId = best.profileId,
+            ambiguous = false,
+            bestDistance = best.minDistance,
+        )
     }
     private const val SIGNATURE_VERSION_PREFIX = "4|"
     private const val SIGNATURE_MULTI_PREFIX = "4m|"

@@ -3,7 +3,12 @@ package com.dtr.scanner.face
 data class FaceCapture(
     val signature: FloatArray,
     val thumbnailJpeg: ByteArray?,
+    /** Extra probe vectors (e.g. v4 + v5) for check-in when the catalog mixes formats. */
+    val matchProbes: List<FloatArray> = emptyList(),
 ) {
+    fun probesForMatching(): List<FloatArray> =
+        if (matchProbes.isEmpty()) listOf(signature) else matchProbes
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false

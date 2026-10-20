@@ -23,6 +23,7 @@ class FaceAnalyzer(
     private val captureFaceThumbnail: Boolean = false,
     private val mirrorForFrontCamera: Boolean = true,
     private val matchTemplateFloatCount: Int? = null,
+    private val matchTemplateSizes: Set<Int>? = null,
 ) : ImageAnalysis.Analyzer {
 
     init {
@@ -79,11 +80,36 @@ class FaceAnalyzer(
                     return@addOnSuccessListener
                 }
 
-                val signature = FaceSignature.extract(
-                    face,
-                    extractMode,
-                    matchTemplateFloatCount = matchTemplateFloatCount,
-                ) ?: run {
+                val matchProbes = when (extractMode) {
+                    ExtractMode.MATCH -> {
+                        val sizes = matchTemplateSizes?.filter { it > 0 }?.toSet()
+                        if (!sizes.isNullOrEmpty() && sizes.size > 1) {
+                            sizes.mapNotNull { size ->
+                                FaceSignature.extract(
+                                    face,
+                                    extractMode,
+                                    matchTemplateFloatCount = size,
+                                )
+                            }
+                        } else {
+                            listOfNotNull(
+                                FaceSignature.extract(
+                                    face,
+                                    extractMode,
+                                    matchTemplateFloatCount = matchTemplateFloatCount,
+                                ),
+                            )
+                        }
+                    }
+                    else -> listOfNotNull(
+                        FaceSignature.extract(
+                            face,
+                            extractMode,
+                            matchTemplateFloatCount = matchTemplateFloatCount,
+                        ),
+                    )
+                }
+                val signature = matchProbes.firstOrNull() ?: run {
                     publishHint(
                         if (extractMode == ExtractMode.MATCH) {
                             "Look straight at the camera, eyes open, good lighting, move a little closer."
@@ -97,7 +123,7 @@ class FaceAnalyzer(
                     publishHint("Look straight at the camera to record this sample.")
                     return@addOnSuccessListener
                 }
-                if (signature.all { it == 0f }) {
+                if (matchProbes.any { it.all { v -> v == 0f } }) {
                     publishHint("Hold still — we could not read facial landmarks.")
                     return@addOnSuccessListener
                 }
@@ -117,7 +143,13 @@ class FaceAnalyzer(
                 } else {
                     null
                 }
-                onLiveFaceCapture(FaceCapture(signature, thumbnail))
+                onLiveFaceCapture(
+                    FaceCapture(
+                        signature = signature,
+                        thumbnailJpeg = thumbnail,
+                        matchProbes = matchProbes,
+                    ),
+                )
                 if (consumeLivenessAfterCapture) {
                     livenessTracker.consumeVerification()
                 }
@@ -140,6 +172,6 @@ class FaceAnalyzer(
     }
 
     companion object {
-        private const val EMIT_COOLDOWN_MS = 800L
+        private const val EMIT_COOLDOWN_MS = 550L
     }
 }

@@ -56,13 +56,17 @@ fun FaceCheckInScanner(
     var consensusCount by remember(livenessSessionKey) { mutableIntStateOf(0) }
     var unknownStreak by remember(livenessSessionKey) { mutableIntStateOf(0) }
 
-    val matchTemplateFloatCount = remember(enrolled) {
-        val sizes = enrolled.map { it.template.size }.toSet()
-        when {
-            sizes.contains(FaceSignature.v5SignatureFloatCount) -> FaceSignature.v5SignatureFloatCount
-            sizes.contains(FaceSignature.signatureFloatCount) -> FaceSignature.signatureFloatCount
+    val enrolledTemplateSizes = remember(enrolled) {
+        enrolled.map { it.template.size }.toSet()
+    }
+    val matchTemplateFloatCount = remember(enrolledTemplateSizes) {
+        when (enrolledTemplateSizes.size) {
+            1 -> enrolledTemplateSizes.first()
             else -> FaceSignature.v5SignatureFloatCount
         }
+    }
+    val matchTemplateSizes = remember(enrolledTemplateSizes) {
+        enrolledTemplateSizes.takeIf { it.size > 1 }
     }
 
     LaunchedEffect(outcome) {
@@ -98,34 +102,36 @@ fun FaceCheckInScanner(
             statusText = statusText,
             livenessSessionKey = livenessSessionKey,
             onLivenessHint = onLivenessHint,
-            consumeLivenessAfterCapture = true,
+            // Keep liveness window open so one blink can produce several match frames.
+            consumeLivenessAfterCapture = false,
             extractMode = ExtractMode.MATCH,
             useFrontCamera = useFrontCamera,
             matchTemplateFloatCount = matchTemplateFloatCount,
-            onFaceSignature = { probe ->
+            matchTemplateSizes = matchTemplateSizes,
+            onFaceSignature = {},
+            onFaceCapture = { capture ->
                 if (outcome != null) return@FaceRecognitionScreen
                 if (hasLegacyProfiles && enrolled.isEmpty()) {
                     onNeedsReEnroll()
                     return@FaceRecognitionScreen
                 }
                 if (enrolled.isEmpty()) return@FaceRecognitionScreen
-                val result = FaceSignature.match(
-                    probe,
-                    enrolled.map {
-                        FaceSignature.MatchCandidate(
-                            profileId = it.profileId,
-                            displayName = it.displayName,
-                            template = it.template,
-                        )
-                    },
+                val candidates = enrolled.map {
+                    FaceSignature.MatchCandidate(
+                        profileId = it.profileId,
+                        displayName = it.displayName,
+                        template = it.template,
+                    )
+                }
+                val result = FaceSignature.matchAny(
+                    capture.probesForMatching(),
+                    candidates,
                 )
                 when {
                     result.ambiguous -> {
                         consensusName = null
                         consensusCount = 0
-                        unknownStreak = 0
-                        afterFailure = onFaceAmbiguous
-                        outcome = FaceScanOutcome.NotRecognized
+                        onFaceAmbiguous()
                     }
 
                     result.displayName != null -> {
@@ -208,6 +214,6 @@ private const val FAIL_DISPLAY_MS = 1_400L
 private const val DUPLICATE_DISPLAY_MS = 1_600L
 
 /** Require repeated agreement before check-in to reduce one-frame mis-identification. */
-private const val MATCH_CONSENSUS_FRAMES = 5
+private const val MATCH_CONSENSUS_FRAMES = 3
 
-private const val UNKNOWN_STREAK_LIMIT = 5
+private const val UNKNOWN_STREAK_LIMIT = 8
