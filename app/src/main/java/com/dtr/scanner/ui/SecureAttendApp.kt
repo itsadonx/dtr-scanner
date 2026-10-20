@@ -1,10 +1,10 @@
 package com.dtr.scanner.ui
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
@@ -28,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -193,28 +192,19 @@ fun SecureAttendApp() {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            Column {
-                SecureTopBar(
-                    title = when (selectedTab) {
-                        TAB_DASHBOARD -> stringResource(R.string.nav_dashboard)
-                        TAB_HISTORY -> stringResource(R.string.nav_history)
-                        else -> stringResource(R.string.nav_settings)
-                    },
-                    showMenu = selectedTab == TAB_DASHBOARD,
-                    onLogout = {
-                        loggedIn = false
-                        guardName = ""
-                        selectedTab = TAB_DASHBOARD
-                    },
-                )
-                if (selectedTab == TAB_SETTINGS) {
-                    SettingsSectionNav(
-                        selectedTab = settingsSection,
-                        onSelectTab = { settingsSection = it },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
+            SecureTopBar(
+                title = when (selectedTab) {
+                    TAB_DASHBOARD -> stringResource(R.string.nav_dashboard)
+                    TAB_HISTORY -> stringResource(R.string.nav_history)
+                    else -> stringResource(R.string.nav_settings)
+                },
+                showMenu = selectedTab == TAB_DASHBOARD,
+                onLogout = {
+                    loggedIn = false
+                    guardName = ""
+                    selectedTab = TAB_DASHBOARD
+                },
+            )
         },
         bottomBar = {
             NavigationBar(containerColor = androidx.compose.ui.graphics.Color.White) {
@@ -261,112 +251,114 @@ fun SecureAttendApp() {
             )
 
             TAB_SETTINGS -> {
-                val layoutDirection = LocalLayoutDirection.current
-                val settingsContentPadding = PaddingValues(
-                    start = innerPadding.calculateLeftPadding(layoutDirection),
-                    end = innerPadding.calculateRightPadding(layoutDirection),
-                    top = innerPadding.calculateTopPadding(layoutDirection),
-                    bottom = innerPadding.calculateBottomPadding(),
-                )
-                when {
-                    settingsSection == SETTINGS_SECTION_FACES &&
-                        !cameraPermission.status.isGranted -> {
-                        CameraPermissionContent(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(settingsContentPadding),
-                            showRationale = cameraPermission.status.shouldShowRationale,
-                            onRequest = { cameraPermission.launchPermissionRequest() },
-                        )
-                    }
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                ) {
+                    SettingsSectionNav(
+                        selectedTab = settingsSection,
+                        onSelectTab = { settingsSection = it },
+                    )
+                    Box(modifier = Modifier.weight(1f)) {
+                        when {
+                            settingsSection == SETTINGS_SECTION_FACES &&
+                                !cameraPermission.status.isGranted -> {
+                                CameraPermissionContent(
+                                    modifier = Modifier.fillMaxSize(),
+                                    showRationale = cameraPermission.status.shouldShowRationale,
+                                    onRequest = { cameraPermission.launchPermissionRequest() },
+                                )
+                            }
 
-                    else -> SettingsScreen(
-                        selectedSection = settingsSection,
-                            profiles = faceProfiles,
-                            enrollStatus = enrollStatus,
-                            enrollLivenessSession = enrollLivenessSession,
-                            onEnroll = { input, onSaved ->
-                                viewModel.enrollFace(input) { saved ->
+                            else -> SettingsScreen(
+                                selectedSection = settingsSection,
+                                profiles = faceProfiles,
+                                enrollStatus = enrollStatus,
+                                enrollLivenessSession = enrollLivenessSession,
+                                onEnroll = { input, onSaved ->
+                                    viewModel.enrollFace(input) { saved ->
+                                        enrollLivenessSession++
+                                        enrollStatus = "Saved ID ${saved.id}: ${saved.fullName}."
+                                        Toast.makeText(
+                                            context,
+                                            "Registered ID ${saved.id}: ${saved.fullName}",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                        onSaved(saved)
+                                    }
+                                },
+                                onDeleteProfile = viewModel::deleteFaceProfile,
+                                onStartCaptureSession = {
                                     enrollLivenessSession++
-                                    enrollStatus = "Saved ID ${saved.id}: ${saved.fullName}."
-                                    Toast.makeText(
-                                        context,
-                                        "Registered ID ${saved.id}: ${saved.fullName}",
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                    onSaved(saved)
-                                }
-                            },
-                            onDeleteProfile = viewModel::deleteFaceProfile,
-                            onStartCaptureSession = {
-                                enrollLivenessSession++
-                                enrollStatus = "Blink once, then turn left/right and nod up/down."
-                            },
-                            onFaceSampleProgress = { captured, total ->
-                                enrollStatus = "Sample $captured of $total — tap Save when done."
-                            },
-                            onLivenessHint = { enrollStatus = it },
-                            onClearHistory = { showClearDialog = true },
-                            onExportBackup = { uri, onComplete ->
-                                viewModel.exportBackup(uri) { result ->
-                                    result.fold(
-                                        onSuccess = { summary ->
-                                            Toast.makeText(
-                                                context,
-                                                context.getString(
-                                                    R.string.backup_export_success,
-                                                    summary.faceProfilesImported,
-                                                    summary.scanRecordsImported,
-                                                ),
-                                                Toast.LENGTH_LONG,
-                                            ).show()
-                                        },
-                                        onFailure = { error ->
-                                            Toast.makeText(
-                                                context,
-                                                context.getString(
-                                                    R.string.backup_failed,
-                                                    error.message ?: "Unknown error",
-                                                ),
-                                                Toast.LENGTH_LONG,
-                                            ).show()
-                                        },
-                                    )
-                                    onComplete(result)
-                                }
-                            },
-                            onImportBackup = { uri, onComplete ->
-                                viewModel.importBackup(uri) { result ->
-                                    result.fold(
-                                        onSuccess = { summary ->
-                                            Toast.makeText(
-                                                context,
-                                                context.getString(
-                                                    R.string.backup_import_success,
-                                                    summary.faceProfilesImported,
-                                                    summary.scanRecordsImported,
-                                                ),
-                                                Toast.LENGTH_LONG,
-                                            ).show()
-                                        },
-                                        onFailure = { error ->
-                                            Toast.makeText(
-                                                context,
-                                                context.getString(
-                                                    R.string.backup_failed,
-                                                    error.message ?: "Unknown error",
-                                                ),
-                                                Toast.LENGTH_LONG,
-                                            ).show()
-                                        },
-                                    )
-                                    onComplete(result)
-                                }
-                            },
-                            speechAnnouncer = speechAnnouncer,
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = settingsContentPadding,
-                        )
+                                    enrollStatus = "Blink once, then turn left/right and nod up/down."
+                                },
+                                onFaceSampleProgress = { captured, total ->
+                                    enrollStatus = "Sample $captured of $total — tap Save when done."
+                                },
+                                onLivenessHint = { enrollStatus = it },
+                                onClearHistory = { showClearDialog = true },
+                                onExportBackup = { uri, onComplete ->
+                                    viewModel.exportBackup(uri) { result ->
+                                        result.fold(
+                                            onSuccess = { summary ->
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(
+                                                        R.string.backup_export_success,
+                                                        summary.faceProfilesImported,
+                                                        summary.scanRecordsImported,
+                                                    ),
+                                                    Toast.LENGTH_LONG,
+                                                ).show()
+                                            },
+                                            onFailure = { error ->
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(
+                                                        R.string.backup_failed,
+                                                        error.message ?: "Unknown error",
+                                                    ),
+                                                    Toast.LENGTH_LONG,
+                                                ).show()
+                                            },
+                                        )
+                                        onComplete(result)
+                                    }
+                                },
+                                onImportBackup = { uri, onComplete ->
+                                    viewModel.importBackup(uri) { result ->
+                                        result.fold(
+                                            onSuccess = { summary ->
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(
+                                                        R.string.backup_import_success,
+                                                        summary.faceProfilesImported,
+                                                        summary.scanRecordsImported,
+                                                    ),
+                                                    Toast.LENGTH_LONG,
+                                                ).show()
+                                            },
+                                            onFailure = { error ->
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(
+                                                        R.string.backup_failed,
+                                                        error.message ?: "Unknown error",
+                                                    ),
+                                                    Toast.LENGTH_LONG,
+                                                ).show()
+                                            },
+                                        )
+                                        onComplete(result)
+                                    }
+                                },
+                                speechAnnouncer = speechAnnouncer,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
                 }
             }
         }
