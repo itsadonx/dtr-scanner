@@ -24,6 +24,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dtr.scanner.R
+import com.dtr.scanner.face.EnrolledFaceTemplate
 import com.dtr.scanner.face.FaceSignature
 import com.dtr.scanner.face.FaceSignature.ExtractMode
 import com.dtr.scanner.ui.components.FaceScanMatchFeedback
@@ -33,7 +34,7 @@ import kotlinx.coroutines.delay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FaceCheckInScanner(
-    enrolled: List<Pair<String, FloatArray>>,
+    enrolled: List<EnrolledFaceTemplate>,
     hasLegacyProfiles: Boolean,
     statusText: String,
     livenessSessionKey: Int,
@@ -56,7 +57,7 @@ fun FaceCheckInScanner(
     var unknownStreak by remember(livenessSessionKey) { mutableIntStateOf(0) }
 
     val matchTemplateFloatCount = remember(enrolled) {
-        val sizes = enrolled.map { it.second.size }.toSet()
+        val sizes = enrolled.map { it.template.size }.toSet()
         when {
             sizes.contains(FaceSignature.v5SignatureFloatCount) -> FaceSignature.v5SignatureFloatCount
             sizes.contains(FaceSignature.signatureFloatCount) -> FaceSignature.signatureFloatCount
@@ -108,7 +109,16 @@ fun FaceCheckInScanner(
                     return@FaceRecognitionScreen
                 }
                 if (enrolled.isEmpty()) return@FaceRecognitionScreen
-                val result = FaceSignature.match(probe, enrolled)
+                val result = FaceSignature.match(
+                    probe,
+                    enrolled.map {
+                        FaceSignature.MatchCandidate(
+                            profileId = it.profileId,
+                            displayName = it.displayName,
+                            template = it.template,
+                        )
+                    },
+                )
                 when {
                     result.ambiguous -> {
                         consensusName = null

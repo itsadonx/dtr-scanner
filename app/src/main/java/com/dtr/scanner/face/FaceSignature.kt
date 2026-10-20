@@ -307,20 +307,27 @@ object FaceSignature {
             samples.map { it[index] }.average().toFloat()
         }
     }
+    data class MatchCandidate(
+        val profileId: Long,
+        val displayName: String,
+        val template: FloatArray,
+    )
     data class MatchResult(
         val displayName: String?,
+        val profileId: Long? = null,
         val ambiguous: Boolean,
     )
     private data class PersonScore(
+        val profileId: Long,
         val name: String,
         val score: Float,
         val minDistance: Float,
     )
     fun match(
         probe: FloatArray,
-        profiles: List<Pair<String, FloatArray>>,
+        candidates: List<MatchCandidate>,
     ): MatchResult {
-        val compatible = profiles.filter { it.second.size == probe.size }
+        val compatible = candidates.filter { it.template.size == probe.size }
         if (compatible.isEmpty()) {
             return MatchResult(displayName = null, ambiguous = false)
         }
@@ -335,13 +342,14 @@ object FaceSignature {
             STRONG_MATCH_THRESHOLD
         }
         val ranked = compatible
-            .groupBy { it.first }
-            .map { (name, entries) ->
-                val distances = entries.map { distance(probe, it.second) }.sorted()
+            .groupBy { it.profileId }
+            .map { (profileId, entries) ->
+                val name = entries.first().displayName
+                val distances = entries.map { distance(probe, it.template) }.sorted()
                 val minDist = distances.first()
                 val medianDist = distances[distances.size / 2]
                 val score = minDist * 0.55f + medianDist * 0.45f
-                PersonScore(name, score, minDist)
+                PersonScore(profileId, name, score, minDist)
             }
             .sortedWith(compareBy<PersonScore> { it.minDistance }.thenBy { it.score })
         val best = ranked.first()
@@ -350,7 +358,7 @@ object FaceSignature {
             return MatchResult(displayName = null, ambiguous = false)
         }
         if (ranked.size == 1) {
-            return MatchResult(displayName = best.name, ambiguous = false)
+            return MatchResult(displayName = best.name, profileId = best.profileId, ambiguous = false)
         }
         val templateGap = (second?.minDistance ?: Float.MAX_VALUE) - best.minDistance
         if (templateGap < MIN_BEST_TEMPLATE_GAP) {
@@ -363,7 +371,7 @@ object FaceSignature {
         if (best.score > strongThreshold && scoreMargin < MIN_MARGIN_WHEN_WEAK) {
             return MatchResult(displayName = null, ambiguous = true)
         }
-        return MatchResult(displayName = best.name, ambiguous = false)
+        return MatchResult(displayName = best.name, profileId = best.profileId, ambiguous = false)
     }
     private const val SIGNATURE_VERSION_PREFIX = "4|"
     private const val SIGNATURE_MULTI_PREFIX = "4m|"
