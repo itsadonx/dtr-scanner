@@ -7,10 +7,12 @@ import com.dtr.scanner.data.AppDatabase
 import com.dtr.scanner.data.FaceEnrollmentInput
 import com.dtr.scanner.data.FaceProfile
 import com.dtr.scanner.data.FaceTemplateStore
+import com.dtr.scanner.data.AttendanceDirection
 import com.dtr.scanner.data.ScanRecord
 import com.dtr.scanner.data.ScanType
 import com.dtr.scanner.face.FaceCheckInPolicy
 import com.dtr.scanner.face.FaceSignature
+import com.dtr.scanner.qr.QrAttendancePolicy
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,14 +33,23 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val recentFaceCheckIns = mutableMapOf<String, Long>()
+    private val recentQrScans = mutableMapOf<String, Long>()
+    private val recentQrDirections = mutableMapOf<String, String>()
 
     init {
         viewModelScope.launch {
-            records.collect { syncRecentFaceCheckInsFromHistory(it) }
+            records.collect {
+                syncRecentFaceCheckInsFromHistory(it)
+                syncRecentQrScansFromHistory(it)
+            }
         }
     }
 
-    fun saveScan(content: String, scanType: String = ScanType.QR) {
+    fun saveScan(
+        content: String,
+        scanType: String = ScanType.QR,
+        attendanceDirection: String = AttendanceDirection.IN,
+    ) {
         val trimmed = content.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
@@ -47,9 +58,55 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                     content = trimmed,
                     scannedAtEpochMs = System.currentTimeMillis(),
                     scanType = scanType,
+                    attendanceDirection = attendanceDirection,
                 ),
             )
         }
+    }
+
+    data class QrScanResult(
+        val saved: Boolean,
+        val duplicate: Boolean,
+        val direction: String,
+        val content: String,
+    )
+
+    fun saveQrScan(content: String, history: List<ScanRecord> = emptyList()): QrScanResult {
+        val trimmed = content.trim()
+        if (trimmed.isEmpty()) {
+            return QrScanResult(
+                saved = false,
+                duplicate = false,
+                direction = AttendanceDirection.IN,
+                content = trimmed,
+            )
+        }
+        if (isQrScanDuplicate(trimmed, history)) {
+            val lastDirection = recentQrDirections[trimmed]
+                ?: history
+                    .filter { it.scanType == ScanType.QR && it.content.trim() == trimmed }
+                    .maxByOrNull { it.scannedAtEpochMs }
+                    ?.attendanceDirection
+                ?: AttendanceDirection.IN
+            return QrScanResult(
+                saved = false,
+                duplicate = true,
+                direction = lastDirection,
+                content = trimmed,
+            )
+        }
+        val direction = nextQrDirection(trimmed, history)
+        val now = System.currentTimeMillis()
+        recentQrScans[trimmed] = now
+        recentQrDirections[trimmed] = direction
+        pruneExpiredQrScans()
+        saveScan(trimmed, ScanType.QR, direction)
+        return QrScanResult(
+            saved = true,
+            duplicate = false,
+            direction = direction,
+            content = trimmed,
+        )
     }
 
     fun isFaceCheckInDuplicate(displayName: String, history: List<ScanRecord> = emptyList()): Boolean {
@@ -67,8 +124,63 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         val now = System.currentTimeMillis()
         recentFaceCheckIns[trimmed] = now
         pruneExpiredFaceCheckIns()
-        saveScan(FaceCheckInPolicy.recordContent(trimmed), ScanType.FACE)
+        saveScan(
+            FaceCheckInPolicy.recordContent(trimmed),
+            ScanType.FACE,
+            AttendanceDirection.IN,
+        )
         return true
+    }
+
+    private fun nextQrDirection(qrContent: String, history: List<ScanRecord>): String {
+        val fromHistory = QrAttendancePolicy.nextDirection(history, qrContent)
+        val lastMs = recentQrScans[qrContent] ?: return fromHistory
+        val lastDirection = recentQrDirections[qrContent] ?: return fromHistory
+        val lastHistoryMs = history
+            .filter { it.scanType == ScanType.QR && it.content.trim() == qrContent }
+            .maxOfOrNull { it.scannedAtEpochMs } ?: 0L
+        if (lastMs <= lastHistoryMs) return fromHistory
+        return if (AttendanceDirection.isOut(lastDirection)) {
+            AttendanceDirection.IN
+        } else {
+            AttendanceDirection.OUT
+        }
+    }
+
+    private fun isQrScanDuplicate(qrContent: String, history: List<ScanRecord>): Boolean {
+        pruneExpiredQrScans()
+        val lastMs = recentQrScans[qrContent]
+        if (lastMs != null && System.currentTimeMillis() - lastMs < QrAttendancePolicy.DUPLICATE_WINDOW_MS) {
+            return true
+        }
+        return QrAttendancePolicy.isDuplicate(history, qrContent)
+    }
+
+    private fun syncRecentQrScansFromHistory(history: List<ScanRecord>) {
+        val now = System.currentTimeMillis()
+        val since = now - QrAttendancePolicy.DUPLICATE_WINDOW_MS
+        history.filter { it.scanType == ScanType.QR && it.scannedAtEpochMs >= since }
+            .forEach { record ->
+                val key = record.content.trim()
+                if (key.isEmpty()) return@forEach
+                val existing = recentQrScans[key]
+                if (existing == null || record.scannedAtEpochMs > existing) {
+                    recentQrScans[key] = record.scannedAtEpochMs
+                    recentQrDirections[key] = record.attendanceDirection
+                }
+            }
+        pruneExpiredQrScans()
+    }
+
+    private fun pruneExpiredQrScans() {
+        val now = System.currentTimeMillis()
+        val expired = recentQrScans.filterValues {
+            now - it >= QrAttendancePolicy.DUPLICATE_WINDOW_MS
+        }.keys
+        expired.forEach {
+            recentQrScans.remove(it)
+            recentQrDirections.remove(it)
+        }
     }
 
     private fun isFaceCheckInDuplicateInMemory(displayName: String): Boolean {

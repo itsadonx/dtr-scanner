@@ -54,12 +54,15 @@ class SpeechPreferences(context: Context) {
         get() = prefs.getLong(KEY_THANK_PAUSE_MS, DEFAULT_THANK_PAUSE_MS)
         set(value) = prefs.edit().putLong(KEY_THANK_PAUSE_MS, value).apply()
 
-    fun buildMainAnnouncement(displayName: String): String {
+    fun buildMainAnnouncement(
+        displayName: String,
+        phrase: AttendancePhrase = attendancePhrase,
+    ): String {
         val trimmed = displayName.trim()
         val time = formatSpeechTime()
         val parts = buildList {
             if (trimmed.isNotEmpty()) add(trimmed)
-            add(attendancePhrase.spoken)
+            add(phrase.spoken)
             add(time)
         }
         return parts.joinToString(" ")

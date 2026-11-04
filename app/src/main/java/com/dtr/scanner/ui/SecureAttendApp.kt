@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dtr.scanner.R
 import com.dtr.scanner.ScanViewModel
+import com.dtr.scanner.data.AttendanceDirection
 import com.dtr.scanner.data.FaceEnrollmentInput
 import com.dtr.scanner.face.toMatchCatalog
 import com.dtr.scanner.face.FaceSignature
@@ -107,13 +108,30 @@ fun SecureAttendApp() {
             when (activeScan) {
                 ActiveScan.QR -> ScannerScreen(
                     onQrScanned = { content ->
-                        viewModel.saveScan(content)
-                        Toast.makeText(
-                            context,
-                            "Saved at ${formatNow()}",
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                        activeScan = null
+                        val result = viewModel.saveQrScan(content, records)
+                        if (result.duplicate) {
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.qr_scan_duplicate_toast),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        } else if (result.saved) {
+                            val isOut = AttendanceDirection.isOut(result.direction)
+                            speechAnnouncer.announceQrScan(result.content, isOut)
+                            Toast.makeText(
+                                context,
+                                context.getString(
+                                    if (isOut) {
+                                        R.string.qr_scan_out_toast
+                                    } else {
+                                        R.string.qr_scan_in_toast
+                                    },
+                                    formatNow(),
+                                ),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                            activeScan = null
+                        }
                     },
                     modifier = Modifier
                         .fillMaxSize()

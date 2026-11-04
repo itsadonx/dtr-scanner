@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.dtr.scanner.data.AttendanceDirection
 import com.dtr.scanner.data.ScanRecord
 import com.dtr.scanner.data.ScanType
 import java.time.Instant
@@ -97,6 +98,7 @@ private fun ScanRecordRow(
         .format(dtrTimeFormatter)
 
     val typeLabel = if (record.scanType == ScanType.FACE) "Face" else "QR"
+    val directionLabel = if (AttendanceDirection.isOut(record.attendanceDirection)) "OUT" else "IN"
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -105,7 +107,7 @@ private fun ScanRecordRow(
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                text = "$localTime · $typeLabel",
+                text = "$localTime · $typeLabel · $directionLabel",
                 style = MaterialTheme.typography.labelLarge,
                 color = RoyalBlue,
             )

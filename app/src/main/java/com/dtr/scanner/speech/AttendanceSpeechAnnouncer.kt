@@ -18,7 +18,7 @@ class AttendanceSpeechAnnouncer(
     @Volatile
     private var ready = false
     @Volatile
-    private var pendingDisplayName: String? = null
+    private var pendingAnnouncement: Pair<String, AttendancePhrase>? = null
 
     fun initialize() {
         if (tts != null) return
@@ -26,9 +26,9 @@ class AttendanceSpeechAnnouncer(
             ready = status == TextToSpeech.SUCCESS
             if (ready) {
                 applyVoiceSelection()
-                pendingDisplayName?.let { name ->
-                    pendingDisplayName = null
-                    speakCheckIn(name)
+                pendingAnnouncement?.let { (name, phrase) ->
+                    pendingAnnouncement = null
+                    speakCheckIn(name, phrase)
                 }
             }
         }
@@ -36,31 +36,37 @@ class AttendanceSpeechAnnouncer(
 
     fun announceFaceCheckIn(displayName: String) {
         if (!preferences.enabled) return
-        speak(displayName)
+        speak(displayName, preferences.attendancePhrase)
+    }
+
+    fun announceQrScan(qrContent: String, isOut: Boolean) {
+        if (!preferences.enabled) return
+        val phrase = if (isOut) AttendancePhrase.TIME_OUT else AttendancePhrase.TIME_IN
+        speak(qrContent, phrase)
     }
 
     fun previewSample(sampleName: String = "Adonnis Pama") {
-        speak(sampleName)
+        speak(sampleName, preferences.attendancePhrase)
     }
 
-    private fun speak(displayName: String) {
+    private fun speak(displayName: String, phrase: AttendancePhrase) {
         if (tts == null) {
             initialize()
         }
         if (ready) {
-            speakCheckIn(displayName)
+            speakCheckIn(displayName, phrase)
         } else {
-            pendingDisplayName = displayName
+            pendingAnnouncement = displayName to phrase
         }
     }
 
-    private fun speakCheckIn(displayName: String) {
+    private fun speakCheckIn(displayName: String, phrase: AttendancePhrase) {
         val engine = tts ?: return
         applyVoiceSelection()
         engine.setSpeechRate(preferences.speechRate)
         engine.setPitch(preferences.pitch)
 
-        val main = preferences.buildMainAnnouncement(displayName)
+        val main = preferences.buildMainAnnouncement(displayName, phrase)
         engine.speak(main, TextToSpeech.QUEUE_FLUSH, null, UTTERANCE_MAIN)
 
         if (preferences.sayThankYou) {
@@ -132,7 +138,7 @@ class AttendanceSpeechAnnouncer(
     }
 
     fun shutdown() {
-        pendingDisplayName = null
+        pendingAnnouncement = null
         tts?.stop()
         tts?.shutdown()
         tts = null

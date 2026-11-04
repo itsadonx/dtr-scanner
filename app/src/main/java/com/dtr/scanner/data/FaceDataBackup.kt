@@ -56,7 +56,8 @@ object FaceDataBackup {
                     JSONObject()
                         .put("content", record.content)
                         .put("scannedAtEpochMs", record.scannedAtEpochMs)
-                        .put("scanType", record.scanType),
+                        .put("scanType", record.scanType)
+                        .put("attendanceDirection", record.attendanceDirection),
                 )
             }
 
@@ -117,6 +118,10 @@ object FaceDataBackup {
                         content = item.getString("content"),
                         scannedAtEpochMs = item.getLong("scannedAtEpochMs"),
                         scanType = item.optString("scanType", ScanType.QR),
+                        attendanceDirection = item.optString(
+                            "attendanceDirection",
+                            AttendanceDirection.IN,
+                        ),
                     ),
                 )
             }

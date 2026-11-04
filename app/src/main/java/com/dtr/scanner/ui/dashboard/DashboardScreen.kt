@@ -45,12 +45,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dtr.scanner.R
+import com.dtr.scanner.data.AttendanceDirection
 import com.dtr.scanner.data.ScanRecord
 import com.dtr.scanner.data.ScanType
 import com.dtr.scanner.ui.components.DevelopedByFooter
 import com.dtr.scanner.ui.theme.RoyalBlue
 import com.dtr.scanner.ui.theme.RoyalBlueDark
 import com.dtr.scanner.ui.theme.ScreenBackground
+import com.dtr.scanner.ui.theme.OutBlue
+import com.dtr.scanner.ui.theme.OutBlueBg
 import com.dtr.scanner.ui.theme.SuccessGreen
 import com.dtr.scanner.ui.theme.SuccessGreenBg
 import com.dtr.scanner.ui.theme.TextMuted
@@ -332,6 +335,10 @@ private fun RecentScanRow(record: ScanRecord, modifier: Modifier = Modifier) {
         .removePrefix("Face check-in: ")
         .take(40)
     val initial = displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+    val isOut = AttendanceDirection.isOut(record.attendanceDirection)
+    val directionLabel = if (isOut) "OUT" else "IN"
+    val directionColor = if (isOut) OutBlue else SuccessGreen
+    val directionBg = if (isOut) OutBlueBg else SuccessGreenBg
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -363,18 +370,22 @@ private fun RecentScanRow(record: ScanRecord, modifier: Modifier = Modifier) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    if (record.scanType == ScanType.FACE) "Face attendance" else "QR attendance",
+                    if (record.scanType == ScanType.FACE) {
+                        "Face attendance"
+                    } else {
+                        "QR attendance · $directionLabel"
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = TextMuted,
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(time, style = MaterialTheme.typography.labelMedium)
-                Surface(color = SuccessGreenBg, shape = RoundedCornerShape(8.dp)) {
+                Surface(color = directionBg, shape = RoundedCornerShape(8.dp)) {
                     Text(
-                        "IN",
+                        directionLabel,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                        color = SuccessGreen,
+                        color = directionColor,
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     )
                 }

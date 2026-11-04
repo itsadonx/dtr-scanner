@@ -10,4 +10,5 @@ data class ScanRecord(
     val content: String,
     val scannedAtEpochMs: Long,
     val scanType: String = ScanType.QR,
+    val attendanceDirection: String = AttendanceDirection.IN,
 )
