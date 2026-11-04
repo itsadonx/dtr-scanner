@@ -74,6 +74,8 @@
     .muted { color: var(--muted); font-size: 14px; }
     .hidden { display: none; }
     .key { font-family: Consolas, monospace; background: #f8fafc; padding: 8px 10px; border-radius: 8px; }
+    .day-block { margin-top: 18px; }
+    .day-block h3 { margin: 0 0 8px; color: var(--navy); }
   </style>
 </head>
 <body>
@@ -139,13 +141,8 @@
       </section>
       <section id="history-panel" class="card hidden">
         <h2>Scans from the app</h2>
-        <p class="muted">QR and face scans appear here after the phone uploads them.</p>
-        <table>
-          <thead>
-            <tr><th>Time</th><th>Guard</th><th>Type</th><th>Direction</th><th>Content</th></tr>
-          </thead>
-          <tbody id="scan-rows"></tbody>
-        </table>
+        <p class="muted">Each QR is read as ID, last name, first name, middle name. The first scan of the day is Time In and the next scan is Time Out.</p>
+        <div id="scan-days"></div>
       </section>
     </section>
   </main>
@@ -198,20 +195,121 @@
       `).join("") || `<tr><td colspan="4">No guards yet.</td></tr>`;
     }
 
+    function personFromScan(scan) {
+      const raw = String(scan.content || "").replace(/^Face check-in:\s*/i, "").trim();
+      const parts = raw.split(",").map((part) => part.trim()).filter((part) => part.length > 0);
+      if (parts.length >= 4) {
+        return {
+          id: parts[0],
+          lastName: parts[1],
+          name: `${parts[2]} ${parts.slice(3).join(" ")}`.trim(),
+          key: parts.slice(0, 4).join("|").toLowerCase(),
+        };
+      }
+      return { id: "", lastName: "", name: raw, key: raw.toLowerCase() };
+    }
+
+    function dateKey(ms) {
+      const date = new Date(ms);
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${date.getFullYear()}-${month}-${day}`;
+    }
+
+    function formatDate(ms) {
+      return new Date(ms).toLocaleDateString([], { year: "numeric", month: "long", day: "numeric" });
+    }
+
+    function formatTime(ms) {
+      return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    }
+
+    function attendanceDays(scans) {
+      const days = new Map();
+      const sorted = [...scans].sort((a, b) => a.scannedAtEpochMs - b.scannedAtEpochMs);
+      for (const scan of sorted) {
+        const key = dateKey(scan.scannedAtEpochMs);
+        if (!days.has(key)) {
+          days.set(key, { label: formatDate(scan.scannedAtEpochMs), open: new Map(), rows: [] });
+        }
+        const day = days.get(key);
+        const person = personFromScan(scan);
+        const groupKey = `${scan.scanType || "QR"}|${person.key}`;
+        const isOut = String(scan.attendanceDirection || "IN").toUpperCase() === "OUT";
+        const open = day.open.get(groupKey);
+        if (!isOut) {
+          if (open) day.rows.push(open);
+          day.open.set(groupKey, {
+            timeIn: formatTime(scan.scannedAtEpochMs),
+            timeOut: "",
+            sort: scan.scannedAtEpochMs,
+            id: person.id,
+            lastName: person.lastName,
+            name: person.name,
+            guard: scan.recordedBy || "",
+            type: scan.scanType || "QR",
+          });
+        } else if (open && !open.timeOut) {
+          open.timeOut = formatTime(scan.scannedAtEpochMs);
+          day.rows.push(open);
+          day.open.delete(groupKey);
+        } else {
+          day.rows.push({
+            timeIn: "",
+            timeOut: formatTime(scan.scannedAtEpochMs),
+            sort: scan.scannedAtEpochMs,
+            id: person.id,
+            lastName: person.lastName,
+            name: person.name,
+            guard: scan.recordedBy || "",
+            type: scan.scanType || "QR",
+          });
+        }
+      }
+      return [...days.values()].reverse().map((day) => {
+        day.rows.push(...day.open.values());
+        day.rows.sort((a, b) => a.sort - b.sort);
+        return day;
+      });
+    }
+
+    function cell(value) {
+      return escapeHtml(value || "—");
+    }
+
     async function loadScans() {
       const data = await api("/api/scans");
-      const body = document.querySelector("#scan-rows");
-      body.innerHTML = data.scans.map((scan) => {
-        const when = new Date(scan.scannedAtEpochMs).toLocaleString();
-        const direction = String(scan.attendanceDirection || "IN").toUpperCase() === "OUT" ? "OUT" : "IN";
-        return `<tr>
-          <td>${escapeHtml(when)}</td>
-          <td>${escapeHtml(scan.recordedBy || "—")}</td>
-          <td>${escapeHtml(scan.scanType || "QR")}</td>
-          <td>${badge(direction, direction === "OUT" ? "out" : "in")}</td>
-          <td>${escapeHtml(scan.content)}</td>
-        </tr>`;
-      }).join("") || `<tr><td colspan="5">No scans uploaded yet.</td></tr>`;
+      const host = document.querySelector("#scan-days");
+      const days = attendanceDays(data.scans || []);
+      host.innerHTML = days.map((day) => `
+        <div class="day-block">
+          <h3>${escapeHtml(day.label)}</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Time In</th>
+                <th>Time Out</th>
+                <th>ID</th>
+                <th>Lastname</th>
+                <th>Firstname Middlename</th>
+                <th>Guard</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${day.rows.map((row) => `<tr>
+                <td>${cell(row.timeIn)}</td>
+                <td>${cell(row.timeOut)}</td>
+                <td>${cell(row.id)}</td>
+                <td>${cell(row.lastName)}</td>
+                <td>${cell(row.name)}</td>
+                <td>${cell(row.guard)}</td>
+                <td>${cell(row.type)}</td>
+              </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      `).join("") || `<p class="muted">No scans uploaded yet.</p>`;
     }
 
     document.querySelector("#login-btn").onclick = async () => {
