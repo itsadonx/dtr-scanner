@@ -11,4 +11,7 @@ data class ScanRecord(
     val scannedAtEpochMs: Long,
     val scanType: String = ScanType.QR,
     val attendanceDirection: String = AttendanceDirection.IN,
+    val clientId: String = "",
+    val synced: Boolean = false,
+    val recordedBy: String = "",
 )

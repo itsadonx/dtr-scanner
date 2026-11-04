@@ -40,5 +40,15 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`
 
 ## Notes
 
-- Data is stored only on the device (Room/SQLite). No cloud sync in this version.
+- Scans stay on the device and can upload to the companion website when the phone is online.
 - Duplicate scans of the same QR within ~2.5 seconds are ignored to avoid double entries.
+
+## Companion website
+
+The `companion` folder is the admin site for guard accounts and uploaded scan history.
+
+```bash
+node companion/server.js
+```
+
+Open `http://localhost:8787`. The terminal prints the admin login, the device key, and the address to type into the app (use the PC’s Wi-Fi IP, for example `http://192.168.1.10:8787`). On the phone, open **Companion server**, save that address and the device key, then sign in with a guard account created on the website. After the accounts download, login and scanning work offline. New scans upload the next time the phone can reach the website.

@@ -49,6 +49,11 @@
     <string name="settings_voice_thank_pause">Pause before thank you</string>
     <string name="settings_voice_preview_sample">Example: %1$s</string>
     <string name="settings_voice_test">Test voice</string>
+    <string name="settings_sync_section">Companion website</string>
+    <string name="settings_sync_hint">Guard accounts download from the website. Scan history uploads when this phone is online. Login still works offline after accounts are saved on the phone.</string>
+    <string name="settings_sync_url">Website address</string>
+    <string name="settings_sync_key">Device key</string>
+    <string name="settings_sync_now">Save and sync</string>
     <string name="settings_backup_section">Backup &amp; restore</string>
     <string name="export_database">Export data</string>
     <string name="import_database">Import data</string>

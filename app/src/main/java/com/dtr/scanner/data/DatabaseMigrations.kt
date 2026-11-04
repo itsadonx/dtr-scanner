@@ -47,3 +47,24 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         )
     }
 }
+
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE scan_records ADD COLUMN clientId TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE scan_records ADD COLUMN synced INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE scan_records ADD COLUMN recordedBy TEXT NOT NULL DEFAULT ''")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS guard_accounts (
+                id TEXT NOT NULL PRIMARY KEY,
+                guardId TEXT NOT NULL,
+                displayName TEXT NOT NULL,
+                passwordSalt TEXT NOT NULL,
+                passwordHash TEXT NOT NULL,
+                active INTEGER NOT NULL,
+                updatedAtEpochMs INTEGER NOT NULL
+            )
+            """.trimIndent(),
+        )
+    }
+}

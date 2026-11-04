@@ -20,11 +20,22 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.dtr.scanner.data.FaceDataBackup
+import com.dtr.scanner.sync.CloudSync
+import com.dtr.scanner.sync.PasswordHasher
+import com.dtr.scanner.sync.SyncPreferences
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import java.util.UUID
 
 class ScanViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.get(application)
     private val scanDao = database.scanDao()
     private val faceDao = database.faceProfileDao()
+    private val guardDao = database.guardAccountDao()
+    private val syncPreferences = SyncPreferences(application)
+    private val cloudSync = CloudSync(database, syncPreferences)
 
     val records = scanDao.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -35,6 +46,14 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     private val recentFaceCheckIns = mutableMapOf<String, Long>()
     private val recentQrScans = mutableMapOf<String, Long>()
     private val recentQrDirections = mutableMapOf<String, String>()
+    private val _syncStatus = MutableStateFlow("Waiting to sync.")
+    val syncStatus = _syncStatus.asStateFlow()
+
+    data class LoginResult(
+        val success: Boolean,
+        val displayName: String = "",
+        val message: String = "",
+    )
 
     init {
         viewModelScope.launch {
@@ -43,6 +62,67 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 syncRecentQrScansFromHistory(it)
             }
         }
+        viewModelScope.launch {
+            while (isActive) {
+                pushSyncStatus()
+                delay(45_000)
+            }
+        }
+    }
+
+    fun syncServerUrl(): String = syncPreferences.serverUrl
+
+    fun syncDeviceKey(): String = syncPreferences.deviceKey
+
+    fun setActiveGuard(name: String) {
+        syncPreferences.activeGuardName = name.trim()
+    }
+
+    fun updateSyncSettings(url: String, deviceKey: String, onDone: (String) -> Unit = {}) {
+        syncPreferences.serverUrl = url
+        syncPreferences.deviceKey = deviceKey
+        viewModelScope.launch {
+            val message = pushSyncStatus()
+            onDone(message)
+        }
+    }
+
+    fun loginGuard(guardId: String, password: String, onResult: (LoginResult) -> Unit) {
+        val trimmedId = guardId.trim()
+        viewModelScope.launch {
+            val syncMessage = pushSyncStatus()
+            val account = guardDao.findByGuardId(trimmedId)
+            val result = when {
+                account == null -> LoginResult(
+                    success = false,
+                    message = if (syncPreferences.serverUrl.isBlank()) {
+                        "Set the companion website address, then download guard accounts."
+                    } else {
+                        "Unknown Guard ID. $syncMessage"
+                    },
+                )
+                !account.active -> LoginResult(
+                    success = false,
+                    message = "This guard account is disabled.",
+                )
+                !PasswordHasher.verify(password, account.passwordSalt, account.passwordHash) -> LoginResult(
+                    success = false,
+                    message = "Wrong password.",
+                )
+                else -> {
+                    syncPreferences.activeGuardName = account.displayName
+                    LoginResult(success = true, displayName = account.displayName)
+                }
+            }
+            onResult(result)
+        }
+    }
+
+    private suspend fun pushSyncStatus(): String {
+        val message = runCatching { cloudSync.syncAll() }
+            .getOrElse { it.message ?: "Sync failed." }
+        _syncStatus.value = message
+        return message
     }
 
     fun saveScan(
@@ -59,8 +139,11 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                     scannedAtEpochMs = System.currentTimeMillis(),
                     scanType = scanType,
                     attendanceDirection = attendanceDirection,
+                    clientId = UUID.randomUUID().toString(),
+                    recordedBy = syncPreferences.activeGuardName,
                 ),
             )
+            pushSyncStatus()
         }
     }
 

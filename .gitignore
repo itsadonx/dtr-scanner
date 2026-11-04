@@ -12,3 +12,5 @@
 *.aab
 *.keystore
 !debug.keystore
+companion/data/store.json
+companion/data/store.json.tmp

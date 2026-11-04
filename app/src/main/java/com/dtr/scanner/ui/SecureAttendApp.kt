@@ -80,12 +80,30 @@ fun SecureAttendApp() {
 
     val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
     val speechAnnouncer = rememberAttendanceSpeechAnnouncer()
+    val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
+
+    androidx.compose.runtime.LaunchedEffect(loggedIn, guardName) {
+        if (loggedIn) viewModel.setActiveGuard(guardName)
+    }
 
     if (!loggedIn) {
-        LoginScreen(onLogin = { id ->
-            guardName = id
-            loggedIn = true
-        })
+        LoginScreen(
+            serverUrl = viewModel.syncServerUrl(),
+            deviceKey = viewModel.syncDeviceKey(),
+            syncStatus = syncStatus,
+            onSaveServer = { url, key -> viewModel.updateSyncSettings(url, key) },
+            onLogin = { id, password, done ->
+                viewModel.loginGuard(id, password) { result ->
+                    if (result.success) {
+                        guardName = result.displayName
+                        loggedIn = true
+                        done(null)
+                    } else {
+                        done(result.message)
+                    }
+                }
+            },
+        )
         return
     }
 
@@ -372,6 +390,10 @@ fun SecureAttendApp() {
                                         onComplete(result)
                                     }
                                 },
+                                syncServerUrl = viewModel.syncServerUrl(),
+                                syncDeviceKey = viewModel.syncDeviceKey(),
+                                syncStatus = syncStatus,
+                                onSaveSync = { url, key -> viewModel.updateSyncSettings(url, key) },
                                 speechAnnouncer = speechAnnouncer,
                                 modifier = Modifier.fillMaxSize(),
                             )

@@ -57,7 +57,10 @@ object FaceDataBackup {
                         .put("content", record.content)
                         .put("scannedAtEpochMs", record.scannedAtEpochMs)
                         .put("scanType", record.scanType)
-                        .put("attendanceDirection", record.attendanceDirection),
+                        .put("attendanceDirection", record.attendanceDirection)
+                        .put("clientId", record.clientId)
+                        .put("synced", record.synced)
+                        .put("recordedBy", record.recordedBy),
                 )
             }
 
@@ -122,6 +125,9 @@ object FaceDataBackup {
                             "attendanceDirection",
                             AttendanceDirection.IN,
                         ),
+                        clientId = item.optString("clientId", ""),
+                        synced = item.optBoolean("synced", false),
+                        recordedBy = item.optString("recordedBy", ""),
                     ),
                 )
             }

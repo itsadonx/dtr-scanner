@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SecureAttend Companion</title>
+  <style>
+    :root {
+      --navy: #0a1a4a;
+      --blue: #1a56db;
+      --sky: #38bdf8;
+      --bg: #f3f6fc;
+      --muted: #64748b;
+      --green: #166534;
+      --green-bg: #dcfce7;
+      --out: #1d4ed8;
+      --out-bg: #dbeafe;
+      --danger: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: #0f172a;
+    }
+    header {
+      background: linear-gradient(160deg, #0f2558, var(--navy));
+      color: white;
+      padding: 28px 20px 22px;
+    }
+    header h1 { margin: 0; font-size: 28px; }
+    header h1 span { color: var(--sky); }
+    header p { margin: 8px 0 0; color: rgba(255,255,255,.8); }
+    main { max-width: 980px; margin: 0 auto; padding: 20px; }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, .06);
+      margin-bottom: 16px;
+    }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    input, button { font: inherit; }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d6deea;
+      border-radius: 10px;
+      margin-bottom: 12px;
+    }
+    button, .btn {
+      border: 0;
+      background: var(--blue);
+      color: white;
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+    button.secondary, .btn.secondary { background: #e8eefc; color: var(--blue); }
+    button.danger { background: #fee2e2; color: var(--danger); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .row > * { flex: 1; min-width: 160px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tabs button[aria-selected="true"] { background: var(--navy); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #e8eef8; vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; font-weight: 600; }
+    .badge { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 700; }
+    .in { background: var(--green-bg); color: var(--green); }
+    .out { background: var(--out-bg); color: var(--out); }
+    .off { background: #f1f5f9; color: #475569; }
+    .error { color: var(--danger); }
+    .muted { color: var(--muted); font-size: 14px; }
+    .hidden { display: none; }
+    .key { font-family: Consolas, monospace; background: #f8fafc; padding: 8px 10px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Secure<span>Attend</span></h1>
+    <p>Create guard accounts here. The app downloads them when it is online, then works offline. Scan history uploads from the app.</p>
+  </header>
+  <main>
+    <section id="login" class="card">
+      <h2>Admin sign in</h2>
+      <p class="muted">Use the admin username and password printed when the companion server starts.</p>
+      <label for="admin-user">Username</label>
+      <input id="admin-user" autocomplete="username" />
+      <label for="admin-pass">Password</label>
+      <input id="admin-pass" type="password" autocomplete="current-password" />
+      <p id="login-error" class="error"></p>
+      <button id="login-btn" type="button">Sign in</button>
+    </section>
+
+    <section id="app" class="hidden">
+      <div class="card">
+        <div class="row" style="align-items: center;">
+          <div>
+            <strong>Device key for the app</strong>
+            <div id="device-key" class="key">…</div>
+            <p class="muted">In the app, open Companion server and enter this website address plus this device key.</p>
+          </div>
+          <div style="flex: 0;">
+            <button id="logout-btn" class="secondary" type="button">Sign out</button>
+          </div>
+        </div>
+      </div>
+      <div class="tabs">
+        <button id="tab-guards" type="button" aria-selected="true">Guards</button>
+        <button id="tab-history" class="secondary" type="button" aria-selected="false">Scan history</button>
+      </div>
+      <section id="guards-panel" class="card">
+        <h2>New guard account</h2>
+        <div class="row">
+          <div>
+            <label for="guard-id">Guard ID</label>
+            <input id="guard-id" placeholder="G-1001" />
+          </div>
+          <div>
+            <label for="guard-name">Name</label>
+            <input id="guard-name" placeholder="Maria Santos" />
+          </div>
+          <div>
+            <label for="guard-pass">Password</label>
+            <input id="guard-pass" type="password" />
+          </div>
+        </div>
+        <p id="guard-error" class="error"></p>
+        <button id="create-guard" type="button">Create account</button>
+        <h2>Accounts</h2>
+        <p class="muted">Phones download this list automatically while they can reach this website. Disabled or deleted accounts stop working after the next sync. Already downloaded accounts still work offline until then.</p>
+        <table>
+          <thead>
+            <tr><th>Guard ID</th><th>Name</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody id="guard-rows"></tbody>
+        </table>
+      </section>
+      <section id="history-panel" class="card hidden">
+        <h2>Scans from the app</h2>
+        <p class="muted">QR and face scans appear here after the phone uploads them.</p>
+        <table>
+          <thead>
+            <tr><th>Time</th><th>Guard</th><th>Type</th><th>Direction</th><th>Content</th></tr>
+          </thead>
+          <tbody id="scan-rows"></tbody>
+        </table>
+      </section>
+    </section>
+  </main>
+  <script>
+    const login = document.querySelector("#login");
+    const app = document.querySelector("#app");
+    const loginError = document.querySelector("#login-error");
+    const guardError = document.querySelector("#guard-error");
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Request failed.");
+      return data;
+    }
+
+    function showApp(signedIn) {
+      login.classList.toggle("hidden", signedIn);
+      app.classList.toggle("hidden", !signedIn);
+    }
+
+    function badge(text, kind) {
+      return `<span class="badge ${kind}">${text}</span>`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[ch]));
+    }
+
+    async function loadGuards() {
+      const data = await api("/api/guards");
+      const body = document.querySelector("#guard-rows");
+      body.innerHTML = data.guards.map((guard) => `
+        <tr>
+          <td>${escapeHtml(guard.guardId)}</td>
+          <td>${escapeHtml(guard.displayName)}</td>
+          <td>${guard.active ? badge("Active", "in") : badge("Disabled", "off")}</td>
+          <td>
+            <button class="secondary" data-toggle="${guard.id}" data-active="${guard.active}">${guard.active ? "Disable" : "Enable"}</button>
+            <button class="secondary" data-reset="${guard.id}">New password</button>
+            <button class="danger" data-delete="${guard.id}">Delete</button>
+          </td>
+        </tr>
+      `).join("") || `<tr><td colspan="4">No guards yet.</td></tr>`;
+    }
+
+    async function loadScans() {
+      const data = await api("/api/scans");
+      const body = document.querySelector("#scan-rows");
+      body.innerHTML = data.scans.map((scan) => {
+        const when = new Date(scan.scannedAtEpochMs).toLocaleString();
+        const direction = String(scan.attendanceDirection || "IN").toUpperCase() === "OUT" ? "OUT" : "IN";
+        return `<tr>
+          <td>${escapeHtml(when)}</td>
+          <td>${escapeHtml(scan.recordedBy || "—")}</td>
+          <td>${escapeHtml(scan.scanType || "QR")}</td>
+          <td>${badge(direction, direction === "OUT" ? "out" : "in")}</td>
+          <td>${escapeHtml(scan.content)}</td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="5">No scans uploaded yet.</td></tr>`;
+    }
+
+    document.querySelector("#login-btn").onclick = async () => {
+      loginError.textContent = "";
+      try {
+        await api("/api/admin/login", {
+          method: "POST",
+          body: JSON.stringify({
+            username: document.querySelector("#admin-user").value,
+            password: document.querySelector("#admin-pass").value,
+          }),
+        });
+        const config = await api("/api/admin/config");
+        document.querySelector("#device-key").textContent = config.deviceKey;
+        showApp(true);
+        await loadGuards();
+        await loadScans();
+      } catch (error) {
+        loginError.textContent = error.message;
+      }
+    };
+
+    document.querySelector("#logout-btn").onclick = async () => {
+      await api("/api/admin/logout", { method: "POST", body: "{}" });
+      showApp(false);
+    };
+
+    document.querySelector("#create-guard").onclick = async () => {
+      guardError.textContent = "";
+      try {
+        await api("/api/guards", {
+          method: "POST",
+          body: JSON.stringify({
+            guardId: document.querySelector("#guard-id").value,
+            displayName: document.querySelector("#guard-name").value,
+            password: document.querySelector("#guard-pass").value,
+          }),
+        });
+        document.querySelector("#guard-id").value = "";
+        document.querySelector("#guard-name").value = "";
+        document.querySelector("#guard-pass").value = "";
+        await loadGuards();
+      } catch (error) {
+        guardError.textContent = error.message;
+      }
+    };
+
+    document.querySelector("#guard-rows").onclick = async (event) => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      if (button.dataset.toggle) {
+        await api(`/api/guards/${button.dataset.toggle}`, {
+          method: "PATCH",
+          body: JSON.stringify({ active: button.dataset.active !== "true" }),
+        });
+      }
+      if (button.dataset.reset) {
+        const password = prompt("New password (at least 4 characters)");
+        if (!password) return;
+        await api(`/api/guards/${button.dataset.reset}`, {
+          method: "PATCH",
+          body: JSON.stringify({ password }),
+        });
+      }
+      if (button.dataset.delete) {
+        if (!confirm("Delete this guard account?")) return;
+        await api(`/api/guards/${button.dataset.delete}`, { method: "DELETE" });
+      }
+      await loadGuards();
+    };
+
+    function selectTab(which) {
+      const guards = which === "guards";
+      document.querySelector("#tab-guards").setAttribute("aria-selected", String(guards));
+      document.querySelector("#tab-history").setAttribute("aria-selected", String(!guards));
+      document.querySelector("#tab-guards").classList.toggle("secondary", !guards);
+      document.querySelector("#tab-history").classList.toggle("secondary", guards);
+      document.querySelector("#guards-panel").classList.toggle("hidden", !guards);
+      document.querySelector("#history-panel").classList.toggle("hidden", guards);
+      if (!guards) loadScans().catch(() => {});
+    }
+    document.querySelector("#tab-guards").onclick = () => selectTab("guards");
+    document.querySelector("#tab-history").onclick = () => selectTab("history");
+
+    api("/api/admin/session").then(async (session) => {
+      if (!session.signedIn) return;
+      const config = await api("/api/admin/config");
+      document.querySelector("#device-key").textContent = config.deviceKey;
+      showApp(true);
+      await loadGuards();
+      await loadScans();
+    }).catch(() => {});
+
+    setInterval(() => {
+      if (!app.classList.contains("hidden") && !document.querySelector("#history-panel").classList.contains("hidden")) {
+        loadScans().catch(() => {});
+      }
+    }, 15000);
+  </script>
+</body>
+</html>

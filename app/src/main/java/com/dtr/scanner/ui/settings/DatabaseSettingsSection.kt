@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,10 +39,16 @@ fun DatabaseSettingsSection(
     onClearHistory: () -> Unit,
     onExportBackup: (Uri, (Result<FaceDataBackup.ImportSummary>) -> Unit) -> Unit,
     onImportBackup: (Uri, (Result<FaceDataBackup.ImportSummary>) -> Unit) -> Unit,
+    syncServerUrl: String,
+    syncDeviceKey: String,
+    syncStatus: String,
+    onSaveSync: (String, String) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
+    var url by remember { mutableStateOf(syncServerUrl) }
+    var deviceKey by remember { mutableStateOf(syncDeviceKey) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument(FaceDataBackup.MIME_TYPE),
@@ -64,6 +72,49 @@ fun DatabaseSettingsSection(
             .verticalScroll(rememberScrollState())
             .padding(contentPadding),
     ) {
+        Text(
+            text = stringResource(R.string.settings_sync_section),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
+        )
+        Text(
+            text = stringResource(R.string.settings_sync_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = TextMuted,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        OutlinedTextField(
+            value = url,
+            onValueChange = { url = it },
+            label = { Text(stringResource(R.string.settings_sync_url)) },
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+        OutlinedTextField(
+            value = deviceKey,
+            onValueChange = { deviceKey = it },
+            label = { Text(stringResource(R.string.settings_sync_key)) },
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+        Button(
+            onClick = { onSaveSync(url, deviceKey) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            Text(stringResource(R.string.settings_sync_now))
+        }
+        Text(
+            text = syncStatus,
+            style = MaterialTheme.typography.bodySmall,
+            color = TextMuted,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
         Text(
             text = stringResource(R.string.settings_backup_section),
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),

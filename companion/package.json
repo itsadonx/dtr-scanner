@@ -1,0 +1,11 @@
+{
+  "name": "secureattend-companion",
+  "private": true,
+  "description": "Website companion for SecureAttend guard accounts and scan history.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -21,4 +21,13 @@ interface ScanDao {
 
     @Query("SELECT * FROM scan_records ORDER BY scannedAtEpochMs DESC")
     suspend fun getAllOnce(): List<ScanRecord>
+
+    @Query("SELECT * FROM scan_records WHERE synced = 0")
+    suspend fun unsynced(): List<ScanRecord>
+
+    @Query("UPDATE scan_records SET clientId = :clientId WHERE id = :id")
+    suspend fun setClientId(id: Long, clientId: String)
+
+    @Query("UPDATE scan_records SET synced = 1 WHERE clientId IN (:clientIds)")
+    suspend fun markSynced(clientIds: List<String>)
 }

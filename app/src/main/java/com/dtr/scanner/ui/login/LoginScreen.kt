@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,12 +49,20 @@ import com.dtr.scanner.ui.theme.SkyAccent
 
 @Composable
 fun LoginScreen(
-    onLogin: (guardId: String) -> Unit,
+    serverUrl: String,
+    deviceKey: String,
+    syncStatus: String,
+    onSaveServer: (String, String) -> Unit,
+    onLogin: (guardId: String, password: String, onFinished: (String?) -> Unit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var guardId by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var url by rememberSaveable { mutableStateOf(serverUrl) }
+    var key by rememberSaveable { mutableStateOf(deviceKey) }
+    var showServer by rememberSaveable { mutableStateOf(serverUrl.isBlank()) }
+    var busy by rememberSaveable { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -143,14 +152,53 @@ fun LoginScreen(
                     if (error != null) {
                         Text(text = error!!, color = MaterialTheme.colorScheme.error)
                     }
+                    TextButton(onClick = { showServer = !showServer }) {
+                        Text(if (showServer) "Hide companion server" else "Companion server")
+                    }
+                    if (showServer) {
+                        OutlinedTextField(
+                            value = url,
+                            onValueChange = { url = it },
+                            label = { Text("Website address") },
+                            placeholder = { Text("http://192.168.1.10:8787") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        OutlinedTextField(
+                            value = key,
+                            onValueChange = { key = it },
+                            label = { Text("Device key") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        TextButton(
+                            onClick = { onSaveServer(url, key) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Save and download accounts")
+                        }
+                        Text(
+                            text = syncStatus,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Button(
                         onClick = {
                             when {
                                 guardId.isBlank() || password.isBlank() ->
                                     error = "Enter Guard ID and password."
-                                else -> onLogin(guardId.trim())
+                                else -> {
+                                    busy = true
+                                    error = null
+                                    onLogin(guardId.trim(), password) { message ->
+                                        busy = false
+                                        error = message
+                                    }
+                                }
                             }
                         },
+                        enabled = !busy,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 4.dp),
