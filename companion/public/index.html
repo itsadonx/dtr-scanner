@@ -42,12 +42,13 @@
     }
     label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
     input, button { font: inherit; }
-    input {
+    input, select {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid #d6deea;
       border-radius: 10px;
       margin-bottom: 12px;
+      background: white;
     }
     button, .btn {
       border: 0;
@@ -142,6 +143,40 @@
       <section id="history-panel" class="card hidden">
         <h2>Scans from the app</h2>
         <p class="muted">Each QR is read as ID, last name, first name, middle name. The first scan of the day is Time In and the next scan is Time Out.</p>
+        <div class="row">
+          <div>
+            <label for="filter-search">Search</label>
+            <input id="filter-search" placeholder="ID, name, or guard" />
+          </div>
+          <div>
+            <label for="filter-exact">Exact date</label>
+            <input id="filter-exact" type="date" />
+          </div>
+          <div>
+            <label for="filter-from">From</label>
+            <input id="filter-from" type="date" />
+          </div>
+          <div>
+            <label for="filter-to">To</label>
+            <input id="filter-to" type="date" />
+          </div>
+          <div>
+            <label for="filter-guard">Guard</label>
+            <select id="filter-guard">
+              <option value="">All guards</option>
+            </select>
+          </div>
+          <div>
+            <label for="filter-type">Type</label>
+            <select id="filter-type">
+              <option value="">All types</option>
+              <option value="QR">QR</option>
+              <option value="FACE">Face</option>
+            </select>
+          </div>
+        </div>
+        <button id="clear-filters" class="secondary" type="button">Clear filters</button>
+        <p id="scan-count" class="muted"></p>
         <div id="scan-days"></div>
       </section>
     </section>
@@ -277,10 +312,65 @@
       return escapeHtml(value || "—");
     }
 
-    async function loadScans() {
-      const data = await api("/api/scans");
+    let cachedScans = [];
+
+    function historyFilters() {
+      const exact = document.querySelector("#filter-exact").value;
+      return {
+        search: document.querySelector("#filter-search").value.trim().toLowerCase(),
+        exact,
+        from: exact ? "" : document.querySelector("#filter-from").value,
+        to: exact ? "" : document.querySelector("#filter-to").value,
+        guard: document.querySelector("#filter-guard").value,
+        type: document.querySelector("#filter-type").value,
+      };
+    }
+
+    function scanMatches(scan, filters) {
+      const day = dateKey(scan.scannedAtEpochMs);
+      if (filters.exact && day !== filters.exact) return false;
+      if (filters.from && day < filters.from) return false;
+      if (filters.to && day > filters.to) return false;
+      const type = String(scan.scanType || "QR").toUpperCase();
+      if (filters.type && type !== filters.type) return false;
+      const guard = String(scan.recordedBy || "");
+      if (filters.guard && guard.toLowerCase() !== filters.guard.toLowerCase()) return false;
+      if (filters.search) {
+        const person = personFromScan(scan);
+        const haystack = [person.id, person.lastName, person.name, guard, type, scan.content]
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(filters.search)) return false;
+      }
+      return true;
+    }
+
+    function fillGuardFilter() {
+      const select = document.querySelector("#filter-guard");
+      const current = select.value;
+      const names = [...new Set(
+        cachedScans.map((scan) => String(scan.recordedBy || "").trim()).filter(Boolean),
+      )].sort((a, b) => a.localeCompare(b));
+      select.innerHTML = `<option value="">All guards</option>${
+        names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")
+      }`;
+      if ([...select.options].some((option) => option.value === current)) {
+        select.value = current;
+      }
+    }
+
+    function renderScans() {
+      const exact = document.querySelector("#filter-exact");
+      const rangeLocked = Boolean(exact.value);
+      document.querySelector("#filter-from").disabled = rangeLocked;
+      document.querySelector("#filter-to").disabled = rangeLocked;
+      const matched = cachedScans.filter((scan) => scanMatches(scan, historyFilters()));
       const host = document.querySelector("#scan-days");
-      const days = attendanceDays(data.scans || []);
+      const days = attendanceDays(matched);
+      const rowCount = days.reduce((total, day) => total + day.rows.length, 0);
+      document.querySelector("#scan-count").textContent = cachedScans.length === 0
+        ? "No scans uploaded yet."
+        : `${rowCount} record${rowCount === 1 ? "" : "s"}`;
       host.innerHTML = days.map((day) => `
         <div class="day-block">
           <h3>${escapeHtml(day.label)}</h3>
@@ -309,8 +399,32 @@
             </tbody>
           </table>
         </div>
-      `).join("") || `<p class="muted">No scans uploaded yet.</p>`;
+      `).join("") || (cachedScans.length ? `<p class="muted">No scans match these filters.</p>` : "");
     }
+
+    async function loadScans() {
+      const data = await api("/api/scans");
+      cachedScans = data.scans || [];
+      fillGuardFilter();
+      renderScans();
+    }
+
+    function clearHistoryFilters() {
+      document.querySelector("#filter-search").value = "";
+      document.querySelector("#filter-exact").value = "";
+      document.querySelector("#filter-from").value = "";
+      document.querySelector("#filter-to").value = "";
+      document.querySelector("#filter-guard").value = "";
+      document.querySelector("#filter-type").value = "";
+      renderScans();
+    }
+
+    ["#filter-search", "#filter-exact", "#filter-from", "#filter-to", "#filter-guard", "#filter-type"]
+      .forEach((selector) => {
+        document.querySelector(selector).addEventListener("input", renderScans);
+        document.querySelector(selector).addEventListener("change", renderScans);
+      });
+    document.querySelector("#clear-filters").onclick = clearHistoryFilters;
 
     document.querySelector("#login-btn").onclick = async () => {
       loginError.textContent = "";

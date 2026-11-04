@@ -271,7 +271,7 @@ const server = http.createServer(async (req, res) => {
 
     if (route === "GET /api/scans") {
       const store = loadStore();
-      const scans = [...store.scans].sort((a, b) => b.scannedAtEpochMs - a.scannedAtEpochMs).slice(0, 500);
+      const scans = [...store.scans].sort((a, b) => b.scannedAtEpochMs - a.scannedAtEpochMs);
       sendJson(res, 200, { scans });
       return;
     }
