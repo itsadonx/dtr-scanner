@@ -9,48 +9,93 @@
       --navy: #0a1a4a;
       --blue: #1a56db;
       --sky: #38bdf8;
-      --bg: #f3f6fc;
+      --bg: #eef3fb;
+      --card: #ffffff;
       --muted: #64748b;
+      --line: #e2e8f4;
       --green: #166534;
       --green-bg: #dcfce7;
       --out: #1d4ed8;
       --out-bg: #dbeafe;
       --danger: #b91c1c;
+      --shadow: 0 10px 30px rgba(15, 23, 42, .06);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: "Segoe UI", sans-serif;
-      background: var(--bg);
+      background:
+        radial-gradient(900px 280px at 0% -10%, rgba(56, 189, 248, .18), transparent 60%),
+        var(--bg);
       color: #0f172a;
     }
-    header {
-      background: linear-gradient(160deg, #0f2558, var(--navy));
+    button, input, select { font: inherit; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 22px;
+      background: rgba(10, 26, 74, .96);
       color: white;
-      padding: 28px 20px 22px;
+      backdrop-filter: blur(10px);
     }
-    header h1 { margin: 0; font-size: 28px; }
-    header h1 span { color: var(--sky); }
-    header p { margin: 8px 0 0; color: rgba(255,255,255,.8); }
-    main { max-width: 980px; margin: 0 auto; padding: 20px; }
+    .device-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 280px;
+      padding: 6px 10px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      color: white;
+      cursor: pointer;
+    }
+    .device-chip:hover { background: rgba(255,255,255,.16); }
+    .chip-label { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: #bae6fd; }
+    #device-key {
+      font-family: Consolas, monospace;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .brand { display: flex; flex-direction: column; }
+    .brand strong { font-size: 18px; }
+    .brand strong span { color: var(--sky); }
+    .brand small { color: rgba(255,255,255,.72); }
+    .topbar .spacer { flex: 1; }
+    main { max-width: 1180px; margin: 0 auto; padding: 24px 20px 48px; }
+    .login-wrap { max-width: 460px; margin: 36px auto; }
     .card {
-      background: white;
-      border-radius: 16px;
-      padding: 18px;
-      box-shadow: 0 8px 24px rgba(15, 23, 42, .06);
-      margin-bottom: 16px;
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,.7);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow);
     }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    h1, h2, h3 { margin: 0; }
+    h2 { font-size: 22px; }
     label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-    input, button { font: inherit; }
     input, select {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid #d6deea;
       border-radius: 10px;
-      margin-bottom: 12px;
       background: white;
+      margin-bottom: 12px;
     }
-    button, .btn {
+    button {
       border: 0;
       background: var(--blue);
       color: white;
@@ -58,36 +103,83 @@
       padding: 10px 14px;
       cursor: pointer;
     }
-    button.secondary, .btn.secondary { background: #e8eefc; color: var(--blue); }
+    button.secondary { background: #e8eefc; color: var(--blue); }
+    button.ghost { background: transparent; color: white; border: 1px solid rgba(255,255,255,.25); }
     button.danger { background: #fee2e2; color: var(--danger); }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; }
-    .row > * { flex: 1; min-width: 160px; }
-    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-    .tabs button[aria-selected="true"] { background: var(--navy); }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #e8eef8; vertical-align: top; }
-    th { color: var(--muted); font-size: 12px; font-weight: 600; }
+    button.tiny { padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+    .stat { padding: 16px 18px; }
+    .stat span { display: block; color: var(--muted); font-size: 13px; }
+    .stat strong { display: block; margin-top: 4px; font-size: 28px; color: var(--navy); }
+    .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+    .tabs button { background: white; color: var(--navy); box-shadow: var(--shadow); }
+    .tabs button[aria-selected="true"] { background: var(--navy); color: white; }
+    .filters {
+      display: grid;
+      grid-template-columns: 1.4fr repeat(5, 1fr);
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 8px;
+    }
+    .filters input, .filters select { margin-bottom: 0; }
+    .toolbar { display: flex; align-items: center; gap: 10px; margin: 8px 0 4px; }
+    .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 14px; }
+    table { width: 100%; border-collapse: collapse; min-width: 720px; }
+    th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    th { color: var(--muted); font-size: 12px; font-weight: 700; background: #f8fafc; position: sticky; top: 0; }
+    tr:last-child td { border-bottom: 0; }
+    .actions { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
     .badge { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 700; }
     .in { background: var(--green-bg); color: var(--green); }
     .out { background: var(--out-bg); color: var(--out); }
     .off { background: #f1f5f9; color: #475569; }
-    .error { color: var(--danger); }
+    .error { color: var(--danger); min-height: 1.2em; margin: 0 0 8px; }
     .muted { color: var(--muted); font-size: 14px; }
-    .hidden { display: none; }
-    .key { font-family: Consolas, monospace; background: #f8fafc; padding: 8px 10px; border-radius: 8px; }
+    .hidden { display: none !important; }
     .day-block { margin-top: 18px; }
     .day-block h3 { margin: 0 0 8px; color: var(--navy); }
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(8, 16, 40, .48);
+    }
+    .dialog {
+      width: min(480px, 100%);
+      background: white;
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, .24);
+    }
+    .dialog h2 { margin-bottom: 6px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    @media (max-width: 980px) {
+      .stats, .filters { grid-template-columns: 1fr 1fr; }
+      .brand small { display: none; }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Secure<span>Attend</span></h1>
-    <p>Create guard accounts here. The app downloads them when it is online, then works offline. Scan history uploads from the app.</p>
+  <header class="topbar">
+    <button id="device-chip" class="device-chip hidden" type="button" title="Click to copy the device key">
+      <span class="chip-label">Device key</span>
+      <span id="device-key">…</span>
+    </button>
+    <div class="brand">
+      <strong>Secure<span>Attend</span></strong>
+      <small>Guard accounts and attendance history</small>
+    </div>
+    <div class="spacer"></div>
+    <button id="logout-btn" class="ghost hidden" type="button">Sign out</button>
   </header>
+
   <main>
-    <section id="login" class="card">
+    <section id="login" class="card login-wrap">
       <h2>Admin sign in</h2>
-      <p class="muted">Use the admin username and password printed when the companion server starts.</p>
+      <p class="muted">Sign in to create guard accounts and review scans uploaded by the app.</p>
       <label for="admin-user">Username</label>
       <input id="admin-user" autocomplete="username" />
       <label for="admin-pass">Password</label>
@@ -97,53 +189,42 @@
     </section>
 
     <section id="app" class="hidden">
-      <div class="card">
-        <div class="row" style="align-items: center;">
-          <div>
-            <strong>Device key for the app</strong>
-            <div id="device-key" class="key">…</div>
-            <p class="muted">In the app, open Companion server and enter this website address plus this device key.</p>
-          </div>
-          <div style="flex: 0;">
-            <button id="logout-btn" class="secondary" type="button">Sign out</button>
-          </div>
-        </div>
+      <div class="stats">
+        <div class="card stat"><span>Guard accounts</span><strong id="stat-guards">0</strong></div>
+        <div class="card stat"><span>Uploaded scans</span><strong id="stat-scans">0</strong></div>
+        <div class="card stat"><span>Scans today</span><strong id="stat-today">0</strong></div>
       </div>
       <div class="tabs">
         <button id="tab-guards" type="button" aria-selected="true">Guards</button>
-        <button id="tab-history" class="secondary" type="button" aria-selected="false">Scan history</button>
+        <button id="tab-history" type="button" aria-selected="false">Scan history</button>
       </div>
+
       <section id="guards-panel" class="card">
-        <h2>New guard account</h2>
-        <div class="row">
+        <div class="panel-head">
           <div>
-            <label for="guard-id">Guard ID</label>
-            <input id="guard-id" placeholder="G-1001" />
+            <h2>Guard accounts</h2>
+            <p class="muted">The phone downloads this list when it is online. Guards can still sign in offline after that. A disabled account stops working on the next sync.</p>
           </div>
+          <button id="open-create" type="button">Create account</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Guard ID</th><th>Name</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="guard-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="history-panel" class="card hidden">
+        <div class="panel-head">
           <div>
-            <label for="guard-name">Name</label>
-            <input id="guard-name" placeholder="Maria Santos" />
-          </div>
-          <div>
-            <label for="guard-pass">Password</label>
-            <input id="guard-pass" type="password" />
+            <h2>Scan history</h2>
+            <p class="muted">A QR such as S0183,PAMA,ADONNIS,SABLA-ON becomes ID, last name, and first name with middle name. The first scan of the day is Time In. The next is Time Out.</p>
           </div>
         </div>
-        <p id="guard-error" class="error"></p>
-        <button id="create-guard" type="button">Create account</button>
-        <h2>Accounts</h2>
-        <p class="muted">Phones download this list automatically while they can reach this website. Disabled or deleted accounts stop working after the next sync. Already downloaded accounts still work offline until then.</p>
-        <table>
-          <thead>
-            <tr><th>Guard ID</th><th>Name</th><th>Status</th><th></th></tr>
-          </thead>
-          <tbody id="guard-rows"></tbody>
-        </table>
-      </section>
-      <section id="history-panel" class="card hidden">
-        <h2>Scans from the app</h2>
-        <p class="muted">Each QR is read as ID, last name, first name, middle name. The first scan of the day is Time In and the next scan is Time Out.</p>
-        <div class="row">
+        <div class="filters">
           <div>
             <label for="filter-search">Search</label>
             <input id="filter-search" placeholder="ID, name, or guard" />
@@ -162,9 +243,7 @@
           </div>
           <div>
             <label for="filter-guard">Guard</label>
-            <select id="filter-guard">
-              <option value="">All guards</option>
-            </select>
+            <select id="filter-guard"><option value="">All guards</option></select>
           </div>
           <div>
             <label for="filter-type">Type</label>
@@ -175,17 +254,65 @@
             </select>
           </div>
         </div>
-        <button id="clear-filters" class="secondary" type="button">Clear filters</button>
-        <p id="scan-count" class="muted"></p>
+        <div class="toolbar">
+          <button id="clear-filters" class="secondary" type="button">Clear filters</button>
+          <span id="scan-count" class="muted"></span>
+        </div>
         <div id="scan-days"></div>
       </section>
     </section>
   </main>
+
+  <div id="modal-create" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="create-title">
+    <form class="dialog" id="create-form">
+      <h2 id="create-title">Create guard account</h2>
+      <p class="muted">This Guard ID and password are what the guard types on the phone.</p>
+      <label for="guard-id">Guard ID</label>
+      <input id="guard-id" placeholder="G-1001" required />
+      <label for="guard-name">Name</label>
+      <input id="guard-name" placeholder="Maria Santos" required />
+      <label for="guard-pass">Password</label>
+      <input id="guard-pass" type="password" minlength="4" required />
+      <p id="guard-error" class="error"></p>
+      <div class="dialog-actions">
+        <button class="secondary" type="button" data-close>Cancel</button>
+        <button id="create-guard" type="submit">Create account</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="modal-password" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="password-title">
+    <form class="dialog" id="password-form">
+      <h2 id="password-title">New password</h2>
+      <p class="muted" id="password-who"></p>
+      <input id="reset-guard-id" type="hidden" />
+      <label for="reset-password">Password</label>
+      <input id="reset-password" type="password" minlength="4" required />
+      <p id="reset-error" class="error"></p>
+      <div class="dialog-actions">
+        <button class="secondary" type="button" data-close>Cancel</button>
+        <button type="submit">Save password</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="modal-delete" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+    <div class="dialog">
+      <h2 id="delete-title">Delete guard account?</h2>
+      <p class="muted" id="delete-who"></p>
+      <div class="dialog-actions">
+        <button class="secondary" type="button" data-close>Cancel</button>
+        <button id="confirm-delete" class="danger" type="button">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const login = document.querySelector("#login");
     const app = document.querySelector("#app");
     const loginError = document.querySelector("#login-error");
     const guardError = document.querySelector("#guard-error");
+    let pendingDeleteId = "";
 
     async function api(path, options = {}) {
       const response = await fetch(path, {
@@ -201,6 +328,17 @@
     function showApp(signedIn) {
       login.classList.toggle("hidden", signedIn);
       app.classList.toggle("hidden", !signedIn);
+      document.querySelector("#device-chip").classList.toggle("hidden", !signedIn);
+      document.querySelector("#logout-btn").classList.toggle("hidden", !signedIn);
+    }
+
+    function openModal(id) {
+      document.querySelector(id).classList.remove("hidden");
+    }
+
+    function closeModal(node) {
+      const modal = node.closest ? node.closest(".modal") : document.querySelector(node);
+      if (modal) modal.classList.add("hidden");
     }
 
     function badge(text, kind) {
@@ -215,6 +353,7 @@
 
     async function loadGuards() {
       const data = await api("/api/guards");
+      document.querySelector("#stat-guards").textContent = String(data.guards.length);
       const body = document.querySelector("#guard-rows");
       body.innerHTML = data.guards.map((guard) => `
         <tr>
@@ -222,12 +361,14 @@
           <td>${escapeHtml(guard.displayName)}</td>
           <td>${guard.active ? badge("Active", "in") : badge("Disabled", "off")}</td>
           <td>
-            <button class="secondary" data-toggle="${guard.id}" data-active="${guard.active}">${guard.active ? "Disable" : "Enable"}</button>
-            <button class="secondary" data-reset="${guard.id}">New password</button>
-            <button class="danger" data-delete="${guard.id}">Delete</button>
+            <div class="actions">
+              <button class="secondary tiny" data-toggle="${guard.id}" data-active="${guard.active}">${guard.active ? "Disable" : "Enable"}</button>
+              <button class="secondary tiny" data-reset="${guard.id}" data-name="${escapeHtml(guard.displayName)}">New password</button>
+              <button class="danger tiny" data-delete="${guard.id}" data-name="${escapeHtml(guard.displayName)}">Delete</button>
+            </div>
           </td>
         </tr>
-      `).join("") || `<tr><td colspan="4">No guards yet.</td></tr>`;
+      `).join("") || `<tr><td colspan="4">No guards yet. Create an account to let someone sign in on the phone.</td></tr>`;
     }
 
     function personFromScan(scan) {
@@ -368,36 +509,43 @@
       const host = document.querySelector("#scan-days");
       const days = attendanceDays(matched);
       const rowCount = days.reduce((total, day) => total + day.rows.length, 0);
+      const today = dateKey(Date.now());
+      document.querySelector("#stat-scans").textContent = String(cachedScans.length);
+      document.querySelector("#stat-today").textContent = String(
+        cachedScans.filter((scan) => dateKey(scan.scannedAtEpochMs) === today).length,
+      );
       document.querySelector("#scan-count").textContent = cachedScans.length === 0
         ? "No scans uploaded yet."
-        : `${rowCount} record${rowCount === 1 ? "" : "s"}`;
+        : `${rowCount} record${rowCount === 1 ? "" : "s"} shown`;
       host.innerHTML = days.map((day) => `
         <div class="day-block">
           <h3>${escapeHtml(day.label)}</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Time In</th>
-                <th>Time Out</th>
-                <th>ID</th>
-                <th>Lastname</th>
-                <th>Firstname Middlename</th>
-                <th>Guard</th>
-                <th>Type</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${day.rows.map((row) => `<tr>
-                <td>${cell(row.timeIn)}</td>
-                <td>${cell(row.timeOut)}</td>
-                <td>${cell(row.id)}</td>
-                <td>${cell(row.lastName)}</td>
-                <td>${cell(row.name)}</td>
-                <td>${cell(row.guard)}</td>
-                <td>${cell(row.type)}</td>
-              </tr>`).join("")}
-            </tbody>
-          </table>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time In</th>
+                  <th>Time Out</th>
+                  <th>ID</th>
+                  <th>Lastname</th>
+                  <th>Firstname Middlename</th>
+                  <th>Guard</th>
+                  <th>Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${day.rows.map((row) => `<tr>
+                  <td>${row.timeIn ? badge(row.timeIn, "in") : cell("")}</td>
+                  <td>${row.timeOut ? badge(row.timeOut, "out") : cell("")}</td>
+                  <td>${cell(row.id)}</td>
+                  <td>${cell(row.lastName)}</td>
+                  <td>${cell(row.name)}</td>
+                  <td>${cell(row.guard)}</td>
+                  <td>${badge(row.type === "FACE" ? "Face" : "QR", row.type === "FACE" ? "out" : "in")}</td>
+                </tr>`).join("")}
+              </tbody>
+            </table>
+          </div>
         </div>
       `).join("") || (cachedScans.length ? `<p class="muted">No scans match these filters.</p>` : "");
     }
@@ -426,6 +574,38 @@
       });
     document.querySelector("#clear-filters").onclick = clearHistoryFilters;
 
+    document.querySelectorAll("[data-close]").forEach((button) => {
+      button.onclick = () => closeModal(button);
+    });
+    document.querySelectorAll(".modal").forEach((modal) => {
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) closeModal(modal);
+      });
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        document.querySelectorAll(".modal:not(.hidden)").forEach((modal) => modal.classList.add("hidden"));
+      }
+    });
+
+    document.querySelector("#open-create").onclick = () => {
+      guardError.textContent = "";
+      openModal("#modal-create");
+      document.querySelector("#guard-id").focus();
+    };
+
+    document.querySelector("#device-chip").onclick = async () => {
+      const key = document.querySelector("#device-key").textContent.trim();
+      const label = document.querySelector("#device-chip .chip-label");
+      try {
+        await navigator.clipboard.writeText(key);
+        label.textContent = "Copied";
+        setTimeout(() => { label.textContent = "Device key"; }, 1200);
+      } catch {
+        label.textContent = "Device key";
+      }
+    };
+
     document.querySelector("#login-btn").onclick = async () => {
       loginError.textContent = "";
       try {
@@ -451,7 +631,8 @@
       showApp(false);
     };
 
-    document.querySelector("#create-guard").onclick = async () => {
+    document.querySelector("#create-form").onsubmit = async (event) => {
+      event.preventDefault();
       guardError.textContent = "";
       try {
         await api("/api/guards", {
@@ -462,13 +643,37 @@
             password: document.querySelector("#guard-pass").value,
           }),
         });
-        document.querySelector("#guard-id").value = "";
-        document.querySelector("#guard-name").value = "";
-        document.querySelector("#guard-pass").value = "";
+        document.querySelector("#create-form").reset();
+        closeModal("#modal-create");
         await loadGuards();
       } catch (error) {
         guardError.textContent = error.message;
       }
+    };
+
+    document.querySelector("#password-form").onsubmit = async (event) => {
+      event.preventDefault();
+      const error = document.querySelector("#reset-error");
+      error.textContent = "";
+      try {
+        await api(`/api/guards/${document.querySelector("#reset-guard-id").value}`, {
+          method: "PATCH",
+          body: JSON.stringify({ password: document.querySelector("#reset-password").value }),
+        });
+        document.querySelector("#password-form").reset();
+        closeModal("#modal-password");
+        await loadGuards();
+      } catch (err) {
+        error.textContent = err.message;
+      }
+    };
+
+    document.querySelector("#confirm-delete").onclick = async () => {
+      if (!pendingDeleteId) return;
+      await api(`/api/guards/${pendingDeleteId}`, { method: "DELETE" });
+      pendingDeleteId = "";
+      closeModal("#modal-delete");
+      await loadGuards();
     };
 
     document.querySelector("#guard-rows").onclick = async (event) => {
@@ -479,28 +684,27 @@
           method: "PATCH",
           body: JSON.stringify({ active: button.dataset.active !== "true" }),
         });
+        await loadGuards();
       }
       if (button.dataset.reset) {
-        const password = prompt("New password (at least 4 characters)");
-        if (!password) return;
-        await api(`/api/guards/${button.dataset.reset}`, {
-          method: "PATCH",
-          body: JSON.stringify({ password }),
-        });
+        document.querySelector("#reset-error").textContent = "";
+        document.querySelector("#reset-guard-id").value = button.dataset.reset;
+        document.querySelector("#password-who").textContent = button.dataset.name || "";
+        document.querySelector("#reset-password").value = "";
+        openModal("#modal-password");
+        document.querySelector("#reset-password").focus();
       }
       if (button.dataset.delete) {
-        if (!confirm("Delete this guard account?")) return;
-        await api(`/api/guards/${button.dataset.delete}`, { method: "DELETE" });
+        pendingDeleteId = button.dataset.delete;
+        document.querySelector("#delete-who").textContent = `${button.dataset.name || "This guard"} will be removed. The phone drops the account on the next sync.`;
+        openModal("#modal-delete");
       }
-      await loadGuards();
     };
 
     function selectTab(which) {
       const guards = which === "guards";
       document.querySelector("#tab-guards").setAttribute("aria-selected", String(guards));
       document.querySelector("#tab-history").setAttribute("aria-selected", String(!guards));
-      document.querySelector("#tab-guards").classList.toggle("secondary", !guards);
-      document.querySelector("#tab-history").classList.toggle("secondary", guards);
       document.querySelector("#guards-panel").classList.toggle("hidden", !guards);
       document.querySelector("#history-panel").classList.toggle("hidden", guards);
       if (!guards) loadScans().catch(() => {});
