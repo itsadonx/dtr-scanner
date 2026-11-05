@@ -216,6 +216,18 @@
       padding: 22px;
       box-shadow: 0 24px 60px rgba(30, 36, 58, .2);
     }
+    .dialog.wide { width: min(680px, 100%); }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+    .qr-frame {
+      width: 1in;
+      height: 1in;
+      margin: 4px 0 12px;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .qr-frame canvas, .qr-frame img { width: 1in !important; height: 1in !important; display: block; }
     .dialog h2 { margin: 0 0 6px; }
     .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
     @media (max-width: 980px) {
@@ -248,6 +260,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"/><circle cx="9.5" cy="8" r="3"/><path d="M20 19v-1a3.5 3.5 0 0 0-2.5-3.3"/><path d="M16.5 5.2a3 3 0 0 1 0 5.6"/></svg>
             <span>Guards</span>
           </button>
+          <button id="tab-employees" type="button" aria-selected="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+            <span>Employees</span>
+          </button>
           <button id="tab-history" type="button" aria-selected="false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>
             <span>Scan history</span>
@@ -269,12 +285,18 @@
             <p id="page-sub" class="muted">Accounts the phone downloads for online and offline sign-in.</p>
           </div>
           <button id="open-create" class="primary" type="button">Create account</button>
+          <button id="open-employee" class="primary hidden" type="button">Register employee</button>
         </div>
 
         <div id="guard-stats" class="stats">
           <div class="stat"><i>G</i><div><span>Total guards</span><strong id="stat-guards">0</strong></div></div>
           <div class="stat"><i>A</i><div><span>Active</span><strong id="stat-active">0</strong></div></div>
           <div class="stat"><i>D</i><div><span>Disabled</span><strong id="stat-disabled">0</strong></div></div>
+        </div>
+        <div id="employee-stats" class="stats hidden">
+          <div class="stat"><i>E</i><div><span>Employees</span><strong id="stat-employees">0</strong></div></div>
+          <div class="stat"><i>S</i><div><span>From scans</span><strong id="stat-from-scans">0</strong></div></div>
+          <div class="stat"><i>R</i><div><span>Registered here</span><strong id="stat-registered">0</strong></div></div>
         </div>
         <div id="scan-stats" class="stats hidden">
           <div class="stat"><i>S</i><div><span>Uploaded scans</span><strong id="stat-scans">0</strong></div></div>
@@ -289,6 +311,24 @@
                 <tr><th>Guard</th><th>Guard ID</th><th>Status</th><th></th></tr>
               </thead>
               <tbody id="guard-rows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="employees-panel" class="panel hidden">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>House</th>
+                  <th>Area assigned</th>
+                  <th>Position</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="employee-rows"></tbody>
             </table>
           </div>
         </section>
@@ -367,6 +407,61 @@
     </form>
   </div>
 
+  <div id="modal-employee" class="modal hidden" role="dialog" aria-modal="true">
+    <form class="dialog wide" id="employee-form">
+      <h2 id="employee-title">Register employee</h2>
+      <p class="muted" id="employee-hint">The QR text is ID, last name, first name, middle name, the same format the scanner reads.</p>
+      <input id="employee-record" type="hidden" />
+      <div class="form-grid">
+        <div>
+          <label for="emp-code">ID</label>
+          <input id="emp-code" placeholder="S0183" />
+        </div>
+        <div>
+          <label for="emp-last">Last name</label>
+          <input id="emp-last" placeholder="PAMA" />
+        </div>
+        <div>
+          <label for="emp-first">First name</label>
+          <input id="emp-first" placeholder="ADONNIS" />
+        </div>
+        <div>
+          <label for="emp-middle">Middle name</label>
+          <input id="emp-middle" placeholder="SABLA-ON" />
+        </div>
+        <div>
+          <label for="emp-house">House</label>
+          <input id="emp-house" />
+        </div>
+        <div>
+          <label for="emp-area">Area assigned</label>
+          <input id="emp-area" />
+        </div>
+        <div>
+          <label for="emp-position">Position</label>
+          <select id="emp-position">
+            <option value="">Select position</option>
+            <option>Farmtech</option>
+            <option>Farm Aid</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div id="emp-note-wrap" class="hidden">
+          <label for="emp-note">Other position</label>
+          <input id="emp-note" placeholder="Type the position" />
+        </div>
+      </div>
+      <label>1×1 QR code</label>
+      <div id="emp-qr" class="qr-frame"></div>
+      <p id="employee-error" class="error"></p>
+      <div class="dialog-actions">
+        <button class="soft" type="button" id="download-employee-qr">Download QR</button>
+        <button class="soft" type="button" data-close>Cancel</button>
+        <button class="primary" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+
   <div id="modal-delete" class="modal hidden" role="dialog" aria-modal="true">
     <div class="dialog">
       <h2>Delete guard account?</h2>
@@ -378,6 +473,7 @@
     </div>
   </div>
 
+  <script src="/qrcode.min.js"></script>
   <script>
     const login = document.querySelector("#login");
     const app = document.querySelector("#app");
@@ -771,22 +867,199 @@
       }
     };
 
+    let cachedEmployees = [];
+    let employeeLocked = false;
+
+    function employeeQrText() {
+      const recordId = document.querySelector("#employee-record").value;
+      const current = cachedEmployees.find((employee) => employee.id === recordId);
+      if (employeeLocked && current && !current.employeeCode) return current.qrPayload;
+      const code = document.querySelector("#emp-code").value.trim();
+      const last = document.querySelector("#emp-last").value.trim();
+      const first = document.querySelector("#emp-first").value.trim();
+      const middle = document.querySelector("#emp-middle").value.trim();
+      if (!code || !last || !first) return current && employeeLocked ? current.qrPayload : "";
+      return [code, last, first, middle].join(",");
+    }
+
+    function paintQr(target, text, size) {
+      target.innerHTML = "";
+      if (!text || typeof QRCode === "undefined") return;
+      new QRCode(target, {
+        text,
+        width: size,
+        height: size,
+        correctLevel: QRCode.CorrectLevel.M,
+      });
+    }
+
+    function downloadQrFile(text, filename) {
+      if (!text) return;
+      const holder = document.createElement("div");
+      holder.style.position = "fixed";
+      holder.style.left = "-9999px";
+      document.body.appendChild(holder);
+      new QRCode(holder, {
+        text,
+        width: 300,
+        height: 300,
+        correctLevel: QRCode.CorrectLevel.M,
+      });
+      const canvas = holder.querySelector("canvas");
+      const image = holder.querySelector("img");
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = canvas ? canvas.toDataURL("image/png") : image.src;
+      link.click();
+      holder.remove();
+    }
+
+    function refreshEmployeeQr() {
+      document.querySelector("#emp-note-wrap").classList.toggle(
+        "hidden",
+        document.querySelector("#emp-position").value !== "Other",
+      );
+      paintQr(document.querySelector("#emp-qr"), employeeQrText(), 96);
+    }
+
+    function positionLabel(employee) {
+      if (employee.position === "Other") return employee.positionNote || "Other";
+      return employee.position || "";
+    }
+
+    function employeeName(employee) {
+      return [employee.firstName, employee.middleName].filter(Boolean).join(" ");
+    }
+
+    async function loadEmployees() {
+      const data = await api("/api/employees");
+      cachedEmployees = data.employees || [];
+      const fromScans = cachedEmployees.filter((employee) => employee.source === "scan").length;
+      document.querySelector("#stat-employees").textContent = String(cachedEmployees.length);
+      document.querySelector("#stat-from-scans").textContent = String(fromScans);
+      document.querySelector("#stat-registered").textContent = String(cachedEmployees.length - fromScans);
+      document.querySelector("#employee-rows").innerHTML = cachedEmployees.map((employee) => `
+        <tr>
+          <td>${cell(employee.employeeCode)}</td>
+          <td>
+            <div class="who">
+              <div class="avatar">${escapeHtml(initials(employeeName(employee) || employee.lastName))}</div>
+              <div>${escapeHtml(employee.lastName)}<small>${escapeHtml(employeeName(employee) || "From scan")}</small></div>
+            </div>
+          </td>
+          <td>${cell(employee.house)}</td>
+          <td>${cell(employee.areaAssigned)}</td>
+          <td>${cell(positionLabel(employee))}</td>
+          <td>
+            <div class="actions">
+              <button class="soft tiny" type="button" data-edit-employee="${employee.id}">Details</button>
+              <button class="soft tiny" type="button" data-download-employee="${employee.id}">Download QR</button>
+            </div>
+          </td>
+        </tr>
+      `).join("") || `<tr><td colspan="6">No employees yet. They appear here after a scan, or you can register one.</td></tr>`;
+    }
+
+    function openEmployeeForm(employee) {
+      document.querySelector("#employee-error").textContent = "";
+      document.querySelector("#employee-record").value = employee ? employee.id : "";
+      document.querySelector("#employee-title").textContent = employee ? "Employee details" : "Register employee";
+      document.querySelector("#emp-code").value = employee ? employee.employeeCode : "";
+      document.querySelector("#emp-last").value = employee ? employee.lastName : "";
+      document.querySelector("#emp-first").value = employee ? employee.firstName : "";
+      document.querySelector("#emp-middle").value = employee ? employee.middleName : "";
+      document.querySelector("#emp-house").value = employee ? employee.house : "";
+      document.querySelector("#emp-area").value = employee ? employee.areaAssigned : "";
+      document.querySelector("#emp-position").value = employee ? employee.position : "";
+      document.querySelector("#emp-note").value = employee ? employee.positionNote : "";
+      employeeLocked = Boolean(employee && employee.source === "scan");
+      ["#emp-code", "#emp-last", "#emp-first", "#emp-middle"].forEach((selector) => {
+        document.querySelector(selector).readOnly = employeeLocked;
+      });
+      document.querySelector("#employee-hint").textContent = employeeLocked
+        ? "Name and ID come from the scan, so the QR stays the same. Add house, area, and position."
+        : "The QR text is ID, last name, first name, middle name, the same format the scanner reads.";
+      refreshEmployeeQr();
+      openModal("#modal-employee");
+    }
+
+    document.querySelector("#open-employee").onclick = () => openEmployeeForm(null);
+    ["#emp-code", "#emp-last", "#emp-first", "#emp-middle", "#emp-position"].forEach((selector) => {
+      document.querySelector(selector).addEventListener("input", refreshEmployeeQr);
+      document.querySelector(selector).addEventListener("change", refreshEmployeeQr);
+    });
+    document.querySelector("#download-employee-qr").onclick = () => {
+      const text = employeeQrText();
+      const code = document.querySelector("#emp-code").value.trim() || "employee";
+      downloadQrFile(text, `${code}-qr.png`);
+    };
+    document.querySelector("#employee-form").onsubmit = async (event) => {
+      event.preventDefault();
+      const error = document.querySelector("#employee-error");
+      error.textContent = "";
+      const body = {
+        employeeCode: document.querySelector("#emp-code").value,
+        lastName: document.querySelector("#emp-last").value,
+        firstName: document.querySelector("#emp-first").value,
+        middleName: document.querySelector("#emp-middle").value,
+        house: document.querySelector("#emp-house").value,
+        areaAssigned: document.querySelector("#emp-area").value,
+        position: document.querySelector("#emp-position").value,
+        positionNote: document.querySelector("#emp-note").value,
+      };
+      const recordId = document.querySelector("#employee-record").value;
+      if (!recordId && (!body.employeeCode.trim() || !body.lastName.trim() || !body.firstName.trim() || !body.middleName.trim())) {
+        error.textContent = "ID, last name, first name, and middle name are required.";
+        return;
+      }
+      try {
+        if (recordId) {
+          await api(`/api/employees/${recordId}`, { method: "PATCH", body: JSON.stringify(body) });
+        } else {
+          await api("/api/employees", { method: "POST", body: JSON.stringify(body) });
+        }
+        closeModal("#modal-employee");
+        await loadEmployees();
+      } catch (err) {
+        error.textContent = err.message;
+      }
+    };
+    document.querySelector("#employee-rows").onclick = (event) => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      const employee = cachedEmployees.find((item) =>
+        item.id === (button.dataset.editEmployee || button.dataset.downloadEmployee),
+      );
+      if (!employee) return;
+      if (button.dataset.editEmployee) openEmployeeForm(employee);
+      if (button.dataset.downloadEmployee) {
+        const code = employee.employeeCode || "employee";
+        downloadQrFile(employee.qrPayload, `${code}-qr.png`);
+      }
+    };
+
     function selectTab(which) {
-      const guards = which === "guards";
-      document.querySelector("#tab-guards").setAttribute("aria-selected", String(guards));
-      document.querySelector("#tab-history").setAttribute("aria-selected", String(!guards));
-      document.querySelector("#guards-panel").classList.toggle("hidden", !guards);
-      document.querySelector("#history-panel").classList.toggle("hidden", guards);
-      document.querySelector("#guard-stats").classList.toggle("hidden", !guards);
-      document.querySelector("#scan-stats").classList.toggle("hidden", guards);
-      document.querySelector("#open-create").classList.toggle("hidden", !guards);
-      document.querySelector("#page-title").textContent = guards ? "Guards" : "Scan history";
-      document.querySelector("#page-sub").textContent = guards
-        ? "Accounts the phone downloads for online and offline sign-in."
-        : "QR text is split into ID, last name, first name, and middle name. Scroll inside the table.";
-      if (!guards) loadScans().catch(() => {});
+      const titles = {
+        guards: ["Guards", "Accounts the phone downloads for online and offline sign-in."],
+        employees: ["Employees", "People from scans are listed here. Add house, area, and position, or register someone new."],
+        history: ["Scan history", "QR text is split into ID, last name, first name, and middle name. Scroll inside the table."],
+      };
+      ["guards", "employees", "history"].forEach((name) => {
+        document.querySelector(`#tab-${name}`).setAttribute("aria-selected", String(name === which));
+        document.querySelector(`#${name === "history" ? "history" : name}-panel`).classList.toggle("hidden", name !== which);
+      });
+      document.querySelector("#guard-stats").classList.toggle("hidden", which !== "guards");
+      document.querySelector("#employee-stats").classList.toggle("hidden", which !== "employees");
+      document.querySelector("#scan-stats").classList.toggle("hidden", which !== "history");
+      document.querySelector("#open-create").classList.toggle("hidden", which !== "guards");
+      document.querySelector("#open-employee").classList.toggle("hidden", which !== "employees");
+      document.querySelector("#page-title").textContent = titles[which][0];
+      document.querySelector("#page-sub").textContent = titles[which][1];
+      if (which === "history") loadScans().catch(() => {});
+      if (which === "employees") loadEmployees().catch(() => {});
     }
     document.querySelector("#tab-guards").onclick = () => selectTab("guards");
+    document.querySelector("#tab-employees").onclick = () => selectTab("employees");
     document.querySelector("#tab-history").onclick = () => selectTab("history");
 
     api("/api/admin/session").then(async (session) => {

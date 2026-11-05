@@ -18,7 +18,105 @@ const PBKDF2_KEY_BYTES = 32;
 const sessions = new Map();
 
 function emptyStore() {
-  return { guards: [], scans: [] };
+  return { guards: [], scans: [], employees: [] };
+}
+
+const POSITIONS = ["Farmtech", "Farm Aid", "Other"];
+
+function personFromContent(content) {
+  const raw = String(content || "").replace(/^Face check-in:\s*/i, "").trim();
+  if (!raw) return null;
+  const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 4) {
+    const employeeCode = parts[0];
+    const lastName = parts[1];
+    const firstName = parts[2];
+    const middleName = parts.slice(3).join(" ");
+    return {
+      employeeCode,
+      lastName,
+      firstName,
+      middleName,
+      qrPayload: [employeeCode, lastName, firstName, middleName].join(","),
+      matchKey: `id:${employeeCode.toLowerCase()}`,
+    };
+  }
+  return {
+    employeeCode: "",
+    lastName: raw,
+    firstName: "",
+    middleName: "",
+    qrPayload: raw,
+    matchKey: `raw:${raw.toLowerCase()}`,
+  };
+}
+
+function employeeMatchKey(employee) {
+  if (employee.employeeCode) return `id:${String(employee.employeeCode).toLowerCase()}`;
+  return `raw:${String(employee.qrPayload || "").toLowerCase()}`;
+}
+
+function makeEmployee(fields) {
+  const now = Date.now();
+  return {
+    id: crypto.randomUUID(),
+    employeeCode: fields.employeeCode || "",
+    lastName: fields.lastName || "",
+    firstName: fields.firstName || "",
+    middleName: fields.middleName || "",
+    house: fields.house || "",
+    areaAssigned: fields.areaAssigned || "",
+    position: fields.position || "",
+    positionNote: fields.positionNote || "",
+    qrPayload: fields.qrPayload,
+    source: fields.source || "manual",
+    createdAtEpochMs: now,
+    updatedAtEpochMs: now,
+  };
+}
+
+function ensureEmployeesFromScans(store) {
+  if (!Array.isArray(store.employees)) store.employees = [];
+  let changed = false;
+  for (const scan of store.scans || []) {
+    const person = personFromContent(scan.content);
+    if (!person) continue;
+    const exists = store.employees.some((employee) => employeeMatchKey(employee) === person.matchKey);
+    if (exists) continue;
+    store.employees.push(makeEmployee({ ...person, source: "scan" }));
+    changed = true;
+  }
+  return changed;
+}
+
+function readPosition(body) {
+  const position = String(body.position || "").trim();
+  if (!position) return { position: "", positionNote: "" };
+  if (!POSITIONS.includes(position)) {
+    throw new Error("Position must be Farmtech, Farm Aid, or Other.");
+  }
+  const positionNote = position === "Other" ? String(body.positionNote || "").trim() : "";
+  if (position === "Other" && !positionNote) {
+    throw new Error("Type the position when you choose Other.");
+  }
+  return { position, positionNote };
+}
+
+function publicEmployee(employee) {
+  return {
+    id: employee.id,
+    employeeCode: employee.employeeCode,
+    lastName: employee.lastName,
+    firstName: employee.firstName,
+    middleName: employee.middleName,
+    house: employee.house,
+    areaAssigned: employee.areaAssigned,
+    position: employee.position,
+    positionNote: employee.positionNote,
+    qrPayload: employee.qrPayload,
+    source: employee.source,
+    updatedAtEpochMs: employee.updatedAtEpochMs,
+  };
 }
 
 function loadStore() {
@@ -156,6 +254,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (route === "GET /qrcode.min.js") {
+      const file = fs.readFileSync(path.join(PUBLIC_DIR, "qrcode.min.js"));
+      send(res, 200, file, { "Content-Type": "application/javascript; charset=utf-8" });
+      return;
+    }
+
     if (route === "GET /api/health") {
       sendJson(res, 200, { ok: true, service: "secureattend-companion" });
       return;
@@ -188,7 +292,14 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (url.pathname.startsWith("/api/admin/") || url.pathname === "/api/guards" || url.pathname.startsWith("/api/guards/") || url.pathname === "/api/scans") {
+    if (
+      url.pathname.startsWith("/api/admin/") ||
+      url.pathname === "/api/guards" ||
+      url.pathname.startsWith("/api/guards/") ||
+      url.pathname === "/api/scans" ||
+      url.pathname === "/api/employees" ||
+      url.pathname.startsWith("/api/employees/")
+    ) {
       if (!isAdmin(req)) {
         sendJson(res, 401, { error: "Sign in required." });
         return;
@@ -313,8 +424,95 @@ const server = http.createServer(async (req, res) => {
         else store.scans.push(record);
         saved.push(clientId);
       }
+      ensureEmployeesFromScans(store);
       saveStore(store);
       sendJson(res, 200, { savedClientIds: saved });
+      return;
+    }
+
+    if (route === "GET /api/employees") {
+      const store = loadStore();
+      if (ensureEmployeesFromScans(store)) saveStore(store);
+      const employees = [...store.employees].sort((a, b) =>
+        `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`),
+      );
+      sendJson(res, 200, { employees: employees.map(publicEmployee) });
+      return;
+    }
+
+    if (route === "POST /api/employees") {
+      const body = await readBody(req);
+      const employeeCode = String(body.employeeCode || "").trim();
+      const lastName = String(body.lastName || "").trim();
+      const firstName = String(body.firstName || "").trim();
+      const middleName = String(body.middleName || "").trim();
+      if (!employeeCode || !lastName || !firstName || !middleName) {
+        sendJson(res, 400, { error: "ID, last name, first name, and middle name are required." });
+        return;
+      }
+      const placement = readPosition(body);
+      const store = loadStore();
+      ensureEmployeesFromScans(store);
+      if (store.employees.some((employee) => employee.employeeCode.toLowerCase() === employeeCode.toLowerCase())) {
+        sendJson(res, 409, { error: "That employee ID is already in the list. Edit that row instead." });
+        return;
+      }
+      const employee = makeEmployee({
+        employeeCode,
+        lastName,
+        firstName,
+        middleName,
+        house: String(body.house || "").trim(),
+        areaAssigned: String(body.areaAssigned || "").trim(),
+        ...placement,
+        qrPayload: [employeeCode, lastName, firstName, middleName].join(","),
+        source: "manual",
+      });
+      store.employees.push(employee);
+      saveStore(store);
+      sendJson(res, 201, { employee: publicEmployee(employee) });
+      return;
+    }
+
+    const employeeMatch = url.pathname.match(/^\/api\/employees\/([^/]+)$/);
+    if (employeeMatch && req.method === "PATCH") {
+      const body = await readBody(req);
+      const store = loadStore();
+      const employee = store.employees.find((item) => item.id === decodeURIComponent(employeeMatch[1]));
+      if (!employee) {
+        sendJson(res, 404, { error: "Employee not found." });
+        return;
+      }
+      const placement = readPosition(body);
+      employee.house = String(body.house || "").trim();
+      employee.areaAssigned = String(body.areaAssigned || "").trim();
+      employee.position = placement.position;
+      employee.positionNote = placement.positionNote;
+      if (employee.source !== "scan") {
+        const employeeCode = String(body.employeeCode || employee.employeeCode).trim();
+        const lastName = String(body.lastName || employee.lastName).trim();
+        const firstName = String(body.firstName || employee.firstName).trim();
+        const middleName = String(body.middleName || "").trim();
+        if (!employeeCode || !lastName || !firstName) {
+          sendJson(res, 400, { error: "ID, last name, and first name are required." });
+          return;
+        }
+        const duplicate = store.employees.some((item) =>
+          item.id !== employee.id && item.employeeCode.toLowerCase() === employeeCode.toLowerCase(),
+        );
+        if (duplicate) {
+          sendJson(res, 409, { error: "That employee ID is already in the list." });
+          return;
+        }
+        employee.employeeCode = employeeCode;
+        employee.lastName = lastName;
+        employee.firstName = firstName;
+        employee.middleName = middleName;
+        employee.qrPayload = [employeeCode, lastName, firstName, middleName].join(",");
+      }
+      employee.updatedAtEpochMs = Date.now();
+      saveStore(store);
+      sendJson(res, 200, { employee: publicEmployee(employee) });
       return;
     }
 
