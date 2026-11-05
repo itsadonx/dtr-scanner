@@ -6,138 +6,200 @@
   <title>SecureAttend Companion</title>
   <style>
     :root {
-      --navy: #0a1a4a;
-      --blue: #1a56db;
-      --sky: #38bdf8;
-      --bg: #eef3fb;
-      --card: #ffffff;
-      --muted: #64748b;
-      --line: #e2e8f4;
-      --green: #166534;
-      --green-bg: #dcfce7;
-      --out: #1d4ed8;
-      --out-bg: #dbeafe;
-      --danger: #b91c1c;
-      --shadow: 0 10px 30px rgba(15, 23, 42, .06);
+      --ink: #1e2433;
+      --muted: #8b93a7;
+      --line: #eef1f6;
+      --blue: #3b6ff5;
+      --blue-soft: #eef3ff;
+      --green: #16a34a;
+      --green-bg: #e8f9ef;
+      --danger: #dc2626;
+      --shadow: 0 18px 50px rgba(80, 90, 130, .08);
     }
     * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
     body {
-      margin: 0;
       font-family: "Segoe UI", sans-serif;
-      background:
-        radial-gradient(900px 280px at 0% -10%, rgba(56, 189, 248, .18), transparent 60%),
-        var(--bg);
-      color: #0f172a;
+      color: var(--ink);
+      background: #e7e9f4;
+      overflow: hidden;
     }
     button, input, select { font: inherit; }
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 14px 22px;
-      background: rgba(10, 26, 74, .96);
-      color: white;
-      backdrop-filter: blur(10px);
+    button { border: 0; cursor: pointer; }
+    .hidden { display: none !important; }
+
+    .login-screen {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 24px;
     }
-    .device-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      max-width: 280px;
-      padding: 6px 10px;
-      border: 1px solid rgba(255,255,255,.18);
-      border-radius: 999px;
-      background: rgba(255,255,255,.08);
-      color: white;
-      cursor: pointer;
-    }
-    .device-chip:hover { background: rgba(255,255,255,.16); }
-    .chip-label { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: #bae6fd; }
-    #device-key {
-      font-family: Consolas, monospace;
-      font-size: 13px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .brand { display: flex; flex-direction: column; }
-    .brand strong { font-size: 18px; }
-    .brand strong span { color: var(--sky); }
-    .brand small { color: rgba(255,255,255,.72); }
-    .topbar .spacer { flex: 1; }
-    main { max-width: 1180px; margin: 0 auto; padding: 24px 20px 48px; }
-    .login-wrap { max-width: 460px; margin: 36px auto; }
-    .card {
-      background: var(--card);
-      border: 1px solid rgba(255,255,255,.7);
-      border-radius: 18px;
-      padding: 20px;
+    .login-card {
+      width: min(420px, 100%);
+      background: white;
+      border-radius: 24px;
+      padding: 28px;
       box-shadow: var(--shadow);
     }
-    .panel-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 16px;
-      margin-bottom: 14px;
-    }
-    h1, h2, h3 { margin: 0; }
-    h2 { font-size: 22px; }
-    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    .login-card h1 { margin: 0 0 6px; font-size: 28px; }
+    .login-card h1 span { color: var(--blue); }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
     input, select {
       width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #d6deea;
-      border-radius: 10px;
-      background: white;
+      padding: 11px 12px;
+      border: 1px solid #e4e8f2;
+      border-radius: 12px;
+      background: #fbfcff;
       margin-bottom: 12px;
+      color: var(--ink);
     }
-    button {
-      border: 0;
+    .primary {
       background: var(--blue);
       color: white;
-      border-radius: 10px;
-      padding: 10px 14px;
-      cursor: pointer;
+      border-radius: 12px;
+      padding: 11px 16px;
     }
-    button.secondary { background: #e8eefc; color: var(--blue); }
-    button.ghost { background: transparent; color: white; border: 1px solid rgba(255,255,255,.25); }
-    button.danger { background: #fee2e2; color: var(--danger); }
-    button.tiny { padding: 6px 10px; border-radius: 8px; font-size: 13px; }
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-    .stat { padding: 16px 18px; }
+    .soft { background: #f3f5fb; color: var(--ink); border-radius: 10px; }
+    .danger { background: #fee2e2; color: var(--danger); border-radius: 10px; }
+    .error { color: var(--danger); min-height: 1.1em; margin: 0 0 8px; font-size: 13px; }
+    .muted { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+
+    .app {
+      height: 100%;
+      padding: 16px;
+    }
+    .window {
+      height: 100%;
+      display: flex;
+      background: #f7f8fc;
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 24px 70px rgba(60, 70, 110, .16);
+    }
+    aside {
+      width: 248px;
+      flex: none;
+      display: flex;
+      flex-direction: column;
+      padding: 22px 16px 16px;
+      background: #fbfcff;
+      border-right: 1px solid #eef1f7;
+    }
+    .logo { padding: 4px 12px 22px; font-size: 20px; font-weight: 700; }
+    .logo span { color: var(--blue); }
+    .nav { display: flex; flex-direction: column; gap: 4px; }
+    .nav button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      color: #5d6578;
+      border-radius: 12px;
+      padding: 11px 12px;
+    }
+    .nav button[aria-selected="true"] { background: var(--blue-soft); color: var(--blue); font-weight: 650; }
+    .nav svg { width: 18px; height: 18px; flex: none; }
+    .side-foot { margin-top: auto; padding: 12px; border-radius: 16px; background: #f4f6fb; }
+    .device-chip {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      color: var(--ink);
+      padding: 0;
+    }
+    .chip-label { display: block; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+    #device-key { display: block; margin-top: 4px; font-family: Consolas, monospace; font-size: 13px; word-break: break-all; }
+    .side-foot .link {
+      margin-top: 10px;
+      background: transparent;
+      color: var(--muted);
+      padding: 0;
+    }
+
+    .workspace {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 22px 22px 16px;
+    }
+    .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .page-head h2 { margin: 0; font-size: 28px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 18px 0; }
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: white;
+      border-radius: 18px;
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+    }
+    .stat i {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-style: normal;
+      font-weight: 700;
+    }
     .stat span { display: block; color: var(--muted); font-size: 13px; }
-    .stat strong { display: block; margin-top: 4px; font-size: 28px; color: var(--navy); }
-    .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
-    .tabs button { background: white; color: var(--navy); box-shadow: var(--shadow); }
-    .tabs button[aria-selected="true"] { background: var(--navy); color: white; }
+    .stat strong { font-size: 26px; }
+    .panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     .filters {
       display: grid;
-      grid-template-columns: 1.4fr repeat(5, 1fr);
+      grid-template-columns: 1.3fr repeat(5, 1fr);
       gap: 10px;
-      align-items: end;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
-    .filters input, .filters select { margin-bottom: 0; }
-    .toolbar { display: flex; align-items: center; gap: 10px; margin: 8px 0 4px; }
-    .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 14px; }
-    table { width: 100%; border-collapse: collapse; min-width: 720px; }
-    th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-    th { color: var(--muted); font-size: 12px; font-weight: 700; background: #f8fafc; position: sticky; top: 0; }
+    .filters input, .filters select { margin-bottom: 0; background: white; }
+    .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .table-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      background: white;
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 860px; }
+    th, td { text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #fbfcff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
     tr:last-child td { border-bottom: 0; }
-    .actions { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
-    .badge { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 700; }
+    .who { display: flex; align-items: center; gap: 10px; }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #e8eeff;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 700;
+      flex: none;
+    }
+    .who small { display: block; color: var(--muted); font-size: 12px; }
+    .badge { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
     .in { background: var(--green-bg); color: var(--green); }
-    .out { background: var(--out-bg); color: var(--out); }
-    .off { background: #f1f5f9; color: #475569; }
-    .error { color: var(--danger); min-height: 1.2em; margin: 0 0 8px; }
-    .muted { color: var(--muted); font-size: 14px; }
-    .hidden { display: none !important; }
-    .day-block { margin-top: 18px; }
-    .day-block h3 { margin: 0 0 8px; color: var(--navy); }
+    .out { background: #e8f0ff; color: #2457d6; }
+    .off { background: #f1f3f8; color: #667085; }
+    .actions { display: flex; gap: 6px; justify-content: flex-end; }
+    .tiny { padding: 7px 10px; font-size: 12px; }
+
     .modal {
       position: fixed;
       inset: 0;
@@ -145,127 +207,136 @@
       display: grid;
       place-items: center;
       padding: 20px;
-      background: rgba(8, 16, 40, .48);
+      background: rgba(30, 36, 58, .35);
     }
     .dialog {
-      width: min(480px, 100%);
+      width: min(460px, 100%);
       background: white;
-      border-radius: 18px;
+      border-radius: 20px;
       padding: 22px;
-      box-shadow: 0 24px 60px rgba(15, 23, 42, .24);
+      box-shadow: 0 24px 60px rgba(30, 36, 58, .2);
     }
-    .dialog h2 { margin-bottom: 6px; }
-    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    .dialog h2 { margin: 0 0 6px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
     @media (max-width: 980px) {
+      aside { width: 76px; padding-inline: 10px; }
+      .logo, .nav span, .side-foot { display: none; }
       .stats, .filters { grid-template-columns: 1fr 1fr; }
-      .brand small { display: none; }
     }
   </style>
 </head>
 <body>
-  <header class="topbar">
-    <button id="device-chip" class="device-chip hidden" type="button" title="Click to copy the device key">
-      <span class="chip-label">Device key</span>
-      <span id="device-key">…</span>
-    </button>
-    <div class="brand">
-      <strong>Secure<span>Attend</span></strong>
-      <small>Guard accounts and attendance history</small>
-    </div>
-    <div class="spacer"></div>
-    <button id="logout-btn" class="ghost hidden" type="button">Sign out</button>
-  </header>
-
-  <main>
-    <section id="login" class="card login-wrap">
-      <h2>Admin sign in</h2>
-      <p class="muted">Sign in to create guard accounts and review scans uploaded by the app.</p>
+  <section id="login" class="login-screen">
+    <form class="login-card" id="login-form">
+      <h1>Secure<span>Attend</span></h1>
+      <p class="muted">Sign in to manage guard accounts and review scans from the app.</p>
       <label for="admin-user">Username</label>
       <input id="admin-user" autocomplete="username" />
       <label for="admin-pass">Password</label>
       <input id="admin-pass" type="password" autocomplete="current-password" />
       <p id="login-error" class="error"></p>
-      <button id="login-btn" type="button">Sign in</button>
-    </section>
+      <button id="login-btn" class="primary" type="submit">Sign in</button>
+    </form>
+  </section>
 
-    <section id="app" class="hidden">
-      <div class="stats">
-        <div class="card stat"><span>Guard accounts</span><strong id="stat-guards">0</strong></div>
-        <div class="card stat"><span>Uploaded scans</span><strong id="stat-scans">0</strong></div>
-        <div class="card stat"><span>Scans today</span><strong id="stat-today">0</strong></div>
-      </div>
-      <div class="tabs">
-        <button id="tab-guards" type="button" aria-selected="true">Guards</button>
-        <button id="tab-history" type="button" aria-selected="false">Scan history</button>
-      </div>
+  <section id="app" class="app hidden">
+    <div class="window">
+      <aside>
+        <div class="logo">Secure<span>Attend</span></div>
+        <nav class="nav">
+          <button id="tab-guards" type="button" aria-selected="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"/><circle cx="9.5" cy="8" r="3"/><path d="M20 19v-1a3.5 3.5 0 0 0-2.5-3.3"/><path d="M16.5 5.2a3 3 0 0 1 0 5.6"/></svg>
+            <span>Guards</span>
+          </button>
+          <button id="tab-history" type="button" aria-selected="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>
+            <span>Scan history</span>
+          </button>
+        </nav>
+        <div class="side-foot">
+          <button id="device-chip" class="device-chip" type="button" title="Click to copy the device key">
+            <span class="chip-label">Device key</span>
+            <span id="device-key">…</span>
+          </button>
+          <button id="logout-btn" class="link" type="button">Sign out</button>
+        </div>
+      </aside>
 
-      <section id="guards-panel" class="card">
-        <div class="panel-head">
+      <section class="workspace">
+        <div class="page-head">
           <div>
-            <h2>Guard accounts</h2>
-            <p class="muted">The phone downloads this list when it is online. Guards can still sign in offline after that. A disabled account stops working on the next sync.</p>
+            <h2 id="page-title">Guards</h2>
+            <p id="page-sub" class="muted">Accounts the phone downloads for online and offline sign-in.</p>
           </div>
-          <button id="open-create" type="button">Create account</button>
+          <button id="open-create" class="primary" type="button">Create account</button>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Guard ID</th><th>Name</th><th>Status</th><th></th></tr>
-            </thead>
-            <tbody id="guard-rows"></tbody>
-          </table>
+
+        <div id="guard-stats" class="stats">
+          <div class="stat"><i>G</i><div><span>Total guards</span><strong id="stat-guards">0</strong></div></div>
+          <div class="stat"><i>A</i><div><span>Active</span><strong id="stat-active">0</strong></div></div>
+          <div class="stat"><i>D</i><div><span>Disabled</span><strong id="stat-disabled">0</strong></div></div>
         </div>
+        <div id="scan-stats" class="stats hidden">
+          <div class="stat"><i>S</i><div><span>Uploaded scans</span><strong id="stat-scans">0</strong></div></div>
+          <div class="stat"><i>T</i><div><span>Scans today</span><strong id="stat-today">0</strong></div></div>
+          <div class="stat"><i>#</i><div><span>Rows shown</span><strong id="stat-shown">0</strong></div></div>
+        </div>
+
+        <section id="guards-panel" class="panel">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>Guard</th><th>Guard ID</th><th>Status</th><th></th></tr>
+              </thead>
+              <tbody id="guard-rows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="history-panel" class="panel hidden">
+          <div class="filters">
+            <div>
+              <label for="filter-search">Search</label>
+              <input id="filter-search" placeholder="ID, name, or guard" />
+            </div>
+            <div>
+              <label for="filter-exact">Exact date</label>
+              <input id="filter-exact" type="date" />
+            </div>
+            <div>
+              <label for="filter-from">From</label>
+              <input id="filter-from" type="date" />
+            </div>
+            <div>
+              <label for="filter-to">To</label>
+              <input id="filter-to" type="date" />
+            </div>
+            <div>
+              <label for="filter-guard">Guard</label>
+              <select id="filter-guard"><option value="">All guards</option></select>
+            </div>
+            <div>
+              <label for="filter-type">Type</label>
+              <select id="filter-type">
+                <option value="">All types</option>
+                <option value="QR">QR</option>
+                <option value="FACE">Face</option>
+              </select>
+            </div>
+          </div>
+          <div class="toolbar">
+            <button id="clear-filters" class="soft" type="button">Clear filters</button>
+            <span id="scan-count" class="muted"></span>
+          </div>
+          <div id="scan-days" class="table-scroll"></div>
+        </section>
       </section>
+    </div>
+  </section>
 
-      <section id="history-panel" class="card hidden">
-        <div class="panel-head">
-          <div>
-            <h2>Scan history</h2>
-            <p class="muted">A QR such as S0183,PAMA,ADONNIS,SABLA-ON becomes ID, last name, and first name with middle name. The first scan of the day is Time In. The next is Time Out.</p>
-          </div>
-        </div>
-        <div class="filters">
-          <div>
-            <label for="filter-search">Search</label>
-            <input id="filter-search" placeholder="ID, name, or guard" />
-          </div>
-          <div>
-            <label for="filter-exact">Exact date</label>
-            <input id="filter-exact" type="date" />
-          </div>
-          <div>
-            <label for="filter-from">From</label>
-            <input id="filter-from" type="date" />
-          </div>
-          <div>
-            <label for="filter-to">To</label>
-            <input id="filter-to" type="date" />
-          </div>
-          <div>
-            <label for="filter-guard">Guard</label>
-            <select id="filter-guard"><option value="">All guards</option></select>
-          </div>
-          <div>
-            <label for="filter-type">Type</label>
-            <select id="filter-type">
-              <option value="">All types</option>
-              <option value="QR">QR</option>
-              <option value="FACE">Face</option>
-            </select>
-          </div>
-        </div>
-        <div class="toolbar">
-          <button id="clear-filters" class="secondary" type="button">Clear filters</button>
-          <span id="scan-count" class="muted"></span>
-        </div>
-        <div id="scan-days"></div>
-      </section>
-    </section>
-  </main>
-
-  <div id="modal-create" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="create-title">
+  <div id="modal-create" class="modal hidden" role="dialog" aria-modal="true">
     <form class="dialog" id="create-form">
-      <h2 id="create-title">Create guard account</h2>
+      <h2>Create guard account</h2>
       <p class="muted">This Guard ID and password are what the guard types on the phone.</p>
       <label for="guard-id">Guard ID</label>
       <input id="guard-id" placeholder="G-1001" required />
@@ -275,33 +346,33 @@
       <input id="guard-pass" type="password" minlength="4" required />
       <p id="guard-error" class="error"></p>
       <div class="dialog-actions">
-        <button class="secondary" type="button" data-close>Cancel</button>
-        <button id="create-guard" type="submit">Create account</button>
+        <button class="soft" type="button" data-close>Cancel</button>
+        <button class="primary" type="submit">Create account</button>
       </div>
     </form>
   </div>
 
-  <div id="modal-password" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="password-title">
+  <div id="modal-password" class="modal hidden" role="dialog" aria-modal="true">
     <form class="dialog" id="password-form">
-      <h2 id="password-title">New password</h2>
+      <h2>New password</h2>
       <p class="muted" id="password-who"></p>
       <input id="reset-guard-id" type="hidden" />
       <label for="reset-password">Password</label>
       <input id="reset-password" type="password" minlength="4" required />
       <p id="reset-error" class="error"></p>
       <div class="dialog-actions">
-        <button class="secondary" type="button" data-close>Cancel</button>
-        <button type="submit">Save password</button>
+        <button class="soft" type="button" data-close>Cancel</button>
+        <button class="primary" type="submit">Save password</button>
       </div>
     </form>
   </div>
 
-  <div id="modal-delete" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+  <div id="modal-delete" class="modal hidden" role="dialog" aria-modal="true">
     <div class="dialog">
-      <h2 id="delete-title">Delete guard account?</h2>
+      <h2>Delete guard account?</h2>
       <p class="muted" id="delete-who"></p>
       <div class="dialog-actions">
-        <button class="secondary" type="button" data-close>Cancel</button>
+        <button class="soft" type="button" data-close>Cancel</button>
         <button id="confirm-delete" class="danger" type="button">Delete</button>
       </div>
     </div>
@@ -328,8 +399,6 @@
     function showApp(signedIn) {
       login.classList.toggle("hidden", signedIn);
       app.classList.toggle("hidden", !signedIn);
-      document.querySelector("#device-chip").classList.toggle("hidden", !signedIn);
-      document.querySelector("#logout-btn").classList.toggle("hidden", !signedIn);
     }
 
     function openModal(id) {
@@ -351,19 +420,31 @@
       }[ch]));
     }
 
+    function initials(name) {
+      const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+      return ((parts[0] || "?").charAt(0) + (parts[1] || "").charAt(0)).toUpperCase();
+    }
+
     async function loadGuards() {
       const data = await api("/api/guards");
+      const active = data.guards.filter((guard) => guard.active).length;
       document.querySelector("#stat-guards").textContent = String(data.guards.length);
-      const body = document.querySelector("#guard-rows");
-      body.innerHTML = data.guards.map((guard) => `
+      document.querySelector("#stat-active").textContent = String(active);
+      document.querySelector("#stat-disabled").textContent = String(data.guards.length - active);
+      document.querySelector("#guard-rows").innerHTML = data.guards.map((guard) => `
         <tr>
+          <td>
+            <div class="who">
+              <div class="avatar">${escapeHtml(initials(guard.displayName))}</div>
+              <div>${escapeHtml(guard.displayName)}<small>Guard account</small></div>
+            </div>
+          </td>
           <td>${escapeHtml(guard.guardId)}</td>
-          <td>${escapeHtml(guard.displayName)}</td>
           <td>${guard.active ? badge("Active", "in") : badge("Disabled", "off")}</td>
           <td>
             <div class="actions">
-              <button class="secondary tiny" data-toggle="${guard.id}" data-active="${guard.active}">${guard.active ? "Disable" : "Enable"}</button>
-              <button class="secondary tiny" data-reset="${guard.id}" data-name="${escapeHtml(guard.displayName)}">New password</button>
+              <button class="soft tiny" data-toggle="${guard.id}" data-active="${guard.active}">${guard.active ? "Disable" : "Enable"}</button>
+              <button class="soft tiny" data-reset="${guard.id}" data-name="${escapeHtml(guard.displayName)}">New password</button>
               <button class="danger tiny" data-delete="${guard.id}" data-name="${escapeHtml(guard.displayName)}">Delete</button>
             </div>
           </td>
@@ -393,7 +474,7 @@
     }
 
     function formatDate(ms) {
-      return new Date(ms).toLocaleDateString([], { year: "numeric", month: "long", day: "numeric" });
+      return new Date(ms).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
     }
 
     function formatTime(ms) {
@@ -413,38 +494,29 @@
         const groupKey = `${scan.scanType || "QR"}|${person.key}`;
         const isOut = String(scan.attendanceDirection || "IN").toUpperCase() === "OUT";
         const open = day.open.get(groupKey);
+        const base = {
+          date: day.label,
+          sort: scan.scannedAtEpochMs,
+          id: person.id,
+          lastName: person.lastName,
+          name: person.name,
+          guard: scan.recordedBy || "",
+          type: scan.scanType || "QR",
+        };
         if (!isOut) {
           if (open) day.rows.push(open);
-          day.open.set(groupKey, {
-            timeIn: formatTime(scan.scannedAtEpochMs),
-            timeOut: "",
-            sort: scan.scannedAtEpochMs,
-            id: person.id,
-            lastName: person.lastName,
-            name: person.name,
-            guard: scan.recordedBy || "",
-            type: scan.scanType || "QR",
-          });
+          day.open.set(groupKey, { ...base, timeIn: formatTime(scan.scannedAtEpochMs), timeOut: "" });
         } else if (open && !open.timeOut) {
           open.timeOut = formatTime(scan.scannedAtEpochMs);
           day.rows.push(open);
           day.open.delete(groupKey);
         } else {
-          day.rows.push({
-            timeIn: "",
-            timeOut: formatTime(scan.scannedAtEpochMs),
-            sort: scan.scannedAtEpochMs,
-            id: person.id,
-            lastName: person.lastName,
-            name: person.name,
-            guard: scan.recordedBy || "",
-            type: scan.scanType || "QR",
-          });
+          day.rows.push({ ...base, timeIn: "", timeOut: formatTime(scan.scannedAtEpochMs) });
         }
       }
       return [...days.values()].reverse().map((day) => {
         day.rows.push(...day.open.values());
-        day.rows.sort((a, b) => a.sort - b.sort);
+        day.rows.sort((a, b) => b.sort - a.sort);
         return day;
       });
     }
@@ -495,9 +567,7 @@
       select.innerHTML = `<option value="">All guards</option>${
         names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")
       }`;
-      if ([...select.options].some((option) => option.value === current)) {
-        select.value = current;
-      }
+      if ([...select.options].some((option) => option.value === current)) select.value = current;
     }
 
     function renderScans() {
@@ -506,48 +576,47 @@
       document.querySelector("#filter-from").disabled = rangeLocked;
       document.querySelector("#filter-to").disabled = rangeLocked;
       const matched = cachedScans.filter((scan) => scanMatches(scan, historyFilters()));
-      const host = document.querySelector("#scan-days");
-      const days = attendanceDays(matched);
-      const rowCount = days.reduce((total, day) => total + day.rows.length, 0);
+      const rows = attendanceDays(matched).flatMap((day) => day.rows);
       const today = dateKey(Date.now());
       document.querySelector("#stat-scans").textContent = String(cachedScans.length);
       document.querySelector("#stat-today").textContent = String(
         cachedScans.filter((scan) => dateKey(scan.scannedAtEpochMs) === today).length,
       );
+      document.querySelector("#stat-shown").textContent = String(rows.length);
       document.querySelector("#scan-count").textContent = cachedScans.length === 0
         ? "No scans uploaded yet."
-        : `${rowCount} record${rowCount === 1 ? "" : "s"} shown`;
-      host.innerHTML = days.map((day) => `
-        <div class="day-block">
-          <h3>${escapeHtml(day.label)}</h3>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Time In</th>
-                  <th>Time Out</th>
-                  <th>ID</th>
-                  <th>Lastname</th>
-                  <th>Firstname Middlename</th>
-                  <th>Guard</th>
-                  <th>Type</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${day.rows.map((row) => `<tr>
-                  <td>${row.timeIn ? badge(row.timeIn, "in") : cell("")}</td>
-                  <td>${row.timeOut ? badge(row.timeOut, "out") : cell("")}</td>
-                  <td>${cell(row.id)}</td>
-                  <td>${cell(row.lastName)}</td>
-                  <td>${cell(row.name)}</td>
-                  <td>${cell(row.guard)}</td>
-                  <td>${badge(row.type === "FACE" ? "Face" : "QR", row.type === "FACE" ? "out" : "in")}</td>
-                </tr>`).join("")}
-              </tbody>
-            </table>
+        : `${rows.length} record${rows.length === 1 ? "" : "s"}`;
+      const body = rows.map((row) => `<tr>
+        <td>${cell(row.date)}</td>
+        <td>${row.timeIn ? badge(row.timeIn, "in") : cell("")}</td>
+        <td>${row.timeOut ? badge(row.timeOut, "out") : cell("")}</td>
+        <td>${cell(row.id)}</td>
+        <td>${cell(row.lastName)}</td>
+        <td>
+          <div class="who">
+            <div class="avatar">${escapeHtml(initials(row.name || row.lastName))}</div>
+            <div>${cell(row.name)}</div>
           </div>
-        </div>
-      `).join("") || (cachedScans.length ? `<p class="muted">No scans match these filters.</p>` : "");
+        </td>
+        <td>${cell(row.guard)}</td>
+        <td>${badge(row.type === "FACE" ? "Face" : "QR", row.type === "FACE" ? "out" : "in")}</td>
+      </tr>`).join("");
+      document.querySelector("#scan-days").innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time In</th>
+              <th>Time Out</th>
+              <th>ID</th>
+              <th>Lastname</th>
+              <th>Firstname Middlename</th>
+              <th>Guard</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+          <tbody>${body || `<tr><td colspan="8">${cachedScans.length ? "No scans match these filters." : "No scans uploaded yet."}</td></tr>`}</tbody>
+        </table>`;
     }
 
     async function loadScans() {
@@ -606,7 +675,8 @@
       }
     };
 
-    document.querySelector("#login-btn").onclick = async () => {
+    document.querySelector("#login-form").onsubmit = async (event) => {
+      event.preventDefault();
       loginError.textContent = "";
       try {
         await api("/api/admin/login", {
@@ -707,6 +777,13 @@
       document.querySelector("#tab-history").setAttribute("aria-selected", String(!guards));
       document.querySelector("#guards-panel").classList.toggle("hidden", !guards);
       document.querySelector("#history-panel").classList.toggle("hidden", guards);
+      document.querySelector("#guard-stats").classList.toggle("hidden", !guards);
+      document.querySelector("#scan-stats").classList.toggle("hidden", guards);
+      document.querySelector("#open-create").classList.toggle("hidden", !guards);
+      document.querySelector("#page-title").textContent = guards ? "Guards" : "Scan history";
+      document.querySelector("#page-sub").textContent = guards
+        ? "Accounts the phone downloads for online and offline sign-in."
+        : "QR text is split into ID, last name, first name, and middle name. Scroll inside the table.";
       if (!guards) loadScans().catch(() => {});
     }
     document.querySelector("#tab-guards").onclick = () => selectTab("guards");
