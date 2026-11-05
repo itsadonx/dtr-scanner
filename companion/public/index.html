@@ -219,15 +219,14 @@
     .dialog.wide { width: min(680px, 100%); }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
     .qr-frame {
-      width: 1in;
-      height: 1in;
-      margin: 4px 0 12px;
-      background: white;
-      border: 1px solid var(--line);
+      width: fit-content;
+      margin: 4px 0 4px;
+      padding: 8px;
+      background: #f4f6fb;
       border-radius: 8px;
-      overflow: hidden;
     }
-    .qr-frame canvas, .qr-frame img { width: 1in !important; height: 1in !important; display: block; }
+    .qr-frame canvas { display: block; }
+    .qr-caption { margin: 0 0 12px; }
     .dialog h2 { margin: 0 0 6px; }
     .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
     @media (max-width: 980px) {
@@ -452,6 +451,7 @@
         </div>
       </div>
       <label>1×1 QR code</label>
+      <p class="muted">White space stays around the code. The black line is where to cut.</p>
       <div id="emp-qr" class="qr-frame"></div>
       <p id="employee-error" class="error"></p>
       <div class="dialog-actions">
@@ -882,36 +882,55 @@
       return [code, last, first, middle].join(",");
     }
 
-    function paintQr(target, text, size) {
-      target.innerHTML = "";
-      if (!text || typeof QRCode === "undefined") return;
-      new QRCode(target, {
-        text,
-        width: size,
-        height: size,
-        correctLevel: QRCode.CorrectLevel.M,
-      });
-    }
-
-    function downloadQrFile(text, filename) {
-      if (!text) return;
+    function framedQrCanvas(text, qrSize) {
+      const white = Math.max(18, Math.round(qrSize * 0.18));
+      const line = Math.max(4, Math.round(qrSize * 0.035));
+      const total = qrSize + white * 2 + line * 2;
       const holder = document.createElement("div");
       holder.style.position = "fixed";
       holder.style.left = "-9999px";
       document.body.appendChild(holder);
       new QRCode(holder, {
         text,
-        width: 300,
-        height: 300,
+        width: qrSize,
+        height: qrSize,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.M,
       });
-      const canvas = holder.querySelector("canvas");
-      const image = holder.querySelector("img");
+      const source = holder.querySelector("canvas") || holder.querySelector("img");
+      const canvas = document.createElement("canvas");
+      canvas.width = total;
+      canvas.height = total;
+      const context = canvas.getContext("2d");
+      context.imageSmoothingEnabled = false;
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, total, total);
+      context.fillStyle = "#000000";
+      context.fillRect(0, 0, total, line);
+      context.fillRect(0, total - line, total, line);
+      context.fillRect(0, 0, line, total);
+      context.fillRect(total - line, 0, line, total);
+      if (source) context.drawImage(source, line + white, line + white, qrSize, qrSize);
+      holder.remove();
+      canvas.style.width = `${total / qrSize}in`;
+      canvas.style.height = `${total / qrSize}in`;
+      return canvas;
+    }
+
+    function paintQr(target, text, size) {
+      target.innerHTML = "";
+      if (!text || typeof QRCode === "undefined") return;
+      target.appendChild(framedQrCanvas(text, size));
+    }
+
+    function downloadQrFile(text, filename) {
+      if (!text || typeof QRCode === "undefined") return;
+      const canvas = framedQrCanvas(text, 300);
       const link = document.createElement("a");
       link.download = filename;
-      link.href = canvas ? canvas.toDataURL("image/png") : image.src;
+      link.href = canvas.toDataURL("image/png");
       link.click();
-      holder.remove();
     }
 
     function refreshEmployeeQr() {
