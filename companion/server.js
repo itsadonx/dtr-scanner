@@ -634,27 +634,79 @@ function shrisBaseUrl() {
   return String(process.env.SHRIS_URL || "https://scifi.is-great.net").replace(/\/$/, "");
 }
 
+let shrisCookie = "";
+let shrisReady = false;
+
+function infinityFreeCookie(html) {
+  if (!String(html).includes("slowAES.decrypt")) return "";
+  const pick = (name) => {
+    const match = String(html).match(new RegExp(name + '=toNumbers\\("([0-9a-f]+)"\\)'));
+    return match ? match[1] : "";
+  };
+  const key = Buffer.from(pick("a"), "hex");
+  const iv = Buffer.from(pick("b"), "hex");
+  const cipher = Buffer.from(pick("c"), "hex");
+  if (key.length !== 16 || iv.length !== 16 || cipher.length === 0) return "";
+  const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv);
+  decipher.setAutoPadding(false);
+  return `__test=${Buffer.concat([decipher.update(cipher), decipher.final()]).toString("hex")}`;
+}
+
+async function shrisFetch(url, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (shrisCookie) headers.Cookie = shrisCookie;
+  let response = await fetch(url, { ...options, headers });
+  let text = await response.text();
+  const cookie = infinityFreeCookie(text);
+  if (cookie) {
+    shrisCookie = cookie;
+    headers.Cookie = shrisCookie;
+    const next = text.match(/location\.href="([^"]+)"/);
+    const retryUrl = next ? next[1].replace(/&amp;/g, "&") : url;
+    response = await fetch(retryUrl, { ...options, headers });
+    text = await response.text();
+  }
+  try {
+    return { ok: response.ok, data: text ? JSON.parse(text) : {} };
+  } catch {
+    return { ok: false, data: { error: text.slice(0, 160).replace(/\s+/g, " ") } };
+  }
+}
+
 async function pushAttendanceToShris() {
   const base = shrisBaseUrl();
   let listed;
   try {
-    const response = await fetch(`${base}/attendance/import_poll.php`, {
+    listed = await shrisFetch(`${base}/attendance/import_poll.php`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Device-Key": DEVICE_KEY },
-      body: "{}",
+      body: JSON.stringify({ deviceKey: DEVICE_KEY }),
     });
-    listed = await response.json();
-  } catch {
+  } catch (error) {
+    console.log(`SHRIS check failed: ${error.message}`);
     return;
   }
-  if (!listed || !listed.job || !listed.job.token) return;
-  const records = attendanceRows(loadStore(), listed.job.from, listed.job.to);
+  if (!listed.ok || listed.data.error) {
+    console.log(`SHRIS check failed: ${listed.data.error || "No answer"}`);
+    return;
+  }
+  if (!shrisReady) {
+    shrisReady = true;
+    console.log(`Connected to SHRIS at ${base}`);
+  }
+  if (!listed.data.job || !listed.data.job.token) return;
+  const records = attendanceRows(loadStore(), listed.data.job.from, listed.data.job.to);
   try {
-    await fetch(`${base}/attendance/import_receive.php`, {
+    const saved = await shrisFetch(`${base}/attendance/import_receive.php`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: listed.job.token, records }),
+      body: JSON.stringify({ token: listed.data.job.token, records }),
     });
+    if (!saved.ok || !saved.data.ok) {
+      console.log(`SHRIS upload failed: ${saved.data.error || "Not saved"}`);
+      return;
+    }
+    console.log(`Uploaded ${records.length} attendance day${records.length === 1 ? "" : "s"} to SHRIS.`);
   } catch (error) {
     console.log(`SHRIS upload failed: ${error.message}`);
   }
