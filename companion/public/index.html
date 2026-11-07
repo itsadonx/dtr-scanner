@@ -254,6 +254,17 @@
       box-shadow: 0 24px 60px rgba(30, 36, 58, .2);
     }
     .dialog.wide { width: min(680px, 100%); }
+    .dialog-scroll {
+      max-height: calc(100vh - 40px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .dialog-body {
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+    }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
     .qr-frame {
       width: fit-content;
@@ -470,10 +481,11 @@
   </div>
 
   <div id="modal-employee" class="modal hidden" role="dialog" aria-modal="true">
-    <form class="dialog wide" id="employee-form">
+    <form class="dialog wide dialog-scroll" id="employee-form">
       <h2 id="employee-title">Register employee</h2>
       <p class="muted" id="employee-hint">The QR text is ID, last name, first name, middle name, the same format the scanner reads.</p>
       <input id="employee-record" type="hidden" />
+      <div class="dialog-body">
       <div class="form-grid">
         <div>
           <label for="emp-code">ID</label>
@@ -522,6 +534,7 @@
       <label>1×1 QR code</label>
       <p class="muted">White space stays around the code. The black line is where to cut.</p>
       <div id="emp-qr" class="qr-frame"></div>
+      </div>
       <p id="employee-error" class="error"></p>
       <div class="dialog-actions">
         <button class="soft" type="button" id="download-employee-qr">Download QR</button>
