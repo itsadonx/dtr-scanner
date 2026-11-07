@@ -167,6 +167,29 @@
       border-radius: 18px;
       box-shadow: var(--shadow);
     }
+    #dtr-preview.table-scroll { background: #e8ebf4; padding: 16px; }
+    .dtr-sheet {
+      width: 720px;
+      max-width: 100%;
+      margin: 0 auto 16px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+    }
+    .dtr-form {
+      border: 1px solid #1e2433;
+      padding: 8px 10px 10px;
+      margin-bottom: 10px;
+      font-size: 11px;
+    }
+    .dtr-form:last-child { margin-bottom: 0; }
+    .dtr-form h3 { margin: 0; text-align: center; font-size: 14px; letter-spacing: .04em; }
+    .dtr-form .dtr-meta { display: grid; grid-template-columns: 1.4fr 1fr; gap: 2px 12px; margin: 6px 0; }
+    .dtr-form table { min-width: 0; }
+    .dtr-form th, .dtr-form td { padding: 2px 4px; font-size: 10px; }
+    .dtr-sign { display: flex; justify-content: flex-end; margin-top: 8px; }
+    .dtr-sign span { width: 180px; border-top: 1px solid #1e2433; text-align: center; padding-top: 3px; font-size: 10px; }
     table { width: 100%; border-collapse: collapse; min-width: 860px; }
     th, td { text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
     th {
@@ -263,6 +286,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
             <span>Employees</span>
           </button>
+          <button id="tab-dtr" type="button" aria-selected="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v5h5M9 12h6M9 16h6"/></svg>
+            <span>DTR</span>
+          </button>
           <button id="tab-history" type="button" aria-selected="false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>
             <span>Scan history</span>
@@ -285,6 +312,7 @@
           </div>
           <button id="open-create" class="primary" type="button">Create account</button>
           <button id="open-employee" class="primary hidden" type="button">Register employee</button>
+          <button id="export-dtr" class="primary hidden" type="button">Export PDF</button>
         </div>
 
         <div id="guard-stats" class="stats">
@@ -330,6 +358,27 @@
               <tbody id="employee-rows"></tbody>
             </table>
           </div>
+        </section>
+
+        <section id="dtr-panel" class="panel hidden">
+          <div class="filters">
+            <div>
+              <label for="dtr-from">From</label>
+              <input id="dtr-from" type="date" />
+            </div>
+            <div>
+              <label for="dtr-to">To</label>
+              <input id="dtr-to" type="date" />
+            </div>
+            <div>
+              <label for="dtr-employee">Employee</label>
+              <select id="dtr-employee"><option value="">All employees</option></select>
+            </div>
+          </div>
+          <div class="toolbar">
+            <span id="dtr-status" class="muted">Choose dates, then export. Two DTR forms are printed on each page.</span>
+          </div>
+          <div id="dtr-preview" class="table-scroll"></div>
         </section>
 
         <section id="history-panel" class="panel hidden">
@@ -984,6 +1033,7 @@
           <td>
             <div class="actions">
               <button class="soft tiny" type="button" data-edit-employee="${employee.id}">Details</button>
+              <button class="soft tiny" type="button" data-dtr-employee="${employee.id}">DTR</button>
               <button class="soft tiny" type="button" data-download-employee="${employee.id}">Download QR</button>
             </div>
           </td>
@@ -1071,9 +1121,13 @@
       const button = event.target.closest("button");
       if (!button) return;
       const employee = cachedEmployees.find((item) =>
-        item.id === (button.dataset.editEmployee || button.dataset.downloadEmployee),
+        item.id === (button.dataset.editEmployee || button.dataset.downloadEmployee || button.dataset.dtrEmployee),
       );
       if (!employee) return;
+      if (button.dataset.dtrEmployee) {
+        selectTab("dtr", employee.id);
+        return;
+      }
       if (button.dataset.editEmployee) openEmployeeForm(employee);
       if (button.dataset.downloadEmployee) {
         const code = employee.employeeCode || "employee";
@@ -1081,29 +1135,378 @@
       }
     };
 
-    function selectTab(which) {
+    function selectTab(which, employeeId) {
       const titles = {
         guards: ["Guards", "Accounts the phone downloads for online and offline sign-in."],
         employees: ["Employees", "People from scans are listed here. Add house, area, and position, or register someone new."],
+        dtr: ["Daily time record", "One form per employee for the dates you choose. Export puts two forms on each PDF page."],
         history: ["Scan history", "QR text is split into ID, last name, first name, and middle name. Scroll inside the table."],
       };
-      ["guards", "employees", "history"].forEach((name) => {
+      ["guards", "employees", "dtr", "history"].forEach((name) => {
         document.querySelector(`#tab-${name}`).setAttribute("aria-selected", String(name === which));
-        document.querySelector(`#${name === "history" ? "history" : name}-panel`).classList.toggle("hidden", name !== which);
+        document.querySelector(`#${name}-panel`).classList.toggle("hidden", name !== which);
       });
       document.querySelector("#guard-stats").classList.toggle("hidden", which !== "guards");
       document.querySelector("#employee-stats").classList.toggle("hidden", which !== "employees");
       document.querySelector("#scan-stats").classList.toggle("hidden", which !== "history");
       document.querySelector("#open-create").classList.toggle("hidden", which !== "guards");
       document.querySelector("#open-employee").classList.toggle("hidden", which !== "employees");
+      document.querySelector("#export-dtr").classList.toggle("hidden", which !== "dtr");
       document.querySelector("#page-title").textContent = titles[which][0];
       document.querySelector("#page-sub").textContent = titles[which][1];
       if (which === "history") loadScans().catch(() => {});
       if (which === "employees") loadEmployees().catch(() => {});
+      if (which === "dtr") prepareDtr(employeeId).catch((error) => {
+        document.querySelector("#dtr-status").textContent = error.message;
+      });
     }
     document.querySelector("#tab-guards").onclick = () => selectTab("guards");
     document.querySelector("#tab-employees").onclick = () => selectTab("employees");
+    document.querySelector("#tab-dtr").onclick = () => selectTab("dtr");
     document.querySelector("#tab-history").onclick = () => selectTab("history");
+
+    function monthBounds() {
+      const now = new Date();
+      const from = new Date(now.getFullYear(), now.getMonth(), 1);
+      const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const iso = (date) => {
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${date.getFullYear()}-${month}-${day}`;
+      };
+      return { from: iso(from), to: iso(to) };
+    }
+
+    function scanBelongsToEmployee(scan, employee) {
+      const raw = String(scan.content || "").replace(/^Face check-in:\s*/i, "").trim();
+      const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
+      if (employee.employeeCode && parts.length >= 4) {
+        return parts[0].toLowerCase() === employee.employeeCode.toLowerCase();
+      }
+      if (!employee.employeeCode) {
+        return raw.toLowerCase() === String(employee.qrPayload || employee.lastName || "").toLowerCase();
+      }
+      return false;
+    }
+
+    function eachDate(from, to) {
+      const days = [];
+      const cursor = new Date(`${from}T00:00:00`);
+      const end = new Date(`${to}T00:00:00`);
+      while (cursor <= end) {
+        days.push(new Date(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return days;
+    }
+
+    function attendanceFor(employee, scans, from, to) {
+      const byDay = new Map();
+      for (const scan of scans) {
+        if (!scanBelongsToEmployee(scan, employee)) continue;
+        const key = dateKey(scan.scannedAtEpochMs);
+        if (key < from || key > to) continue;
+        if (!byDay.has(key)) byDay.set(key, []);
+        byDay.get(key).push(scan);
+      }
+      return eachDate(from, to).map((date) => {
+        const key = dateKey(date.getTime());
+        const list = (byDay.get(key) || []).sort((a, b) => a.scannedAtEpochMs - b.scannedAtEpochMs);
+        let timeIn = "";
+        let timeOut = "";
+        for (const scan of list) {
+          const isOut = String(scan.attendanceDirection || "IN").toUpperCase() === "OUT";
+          const label = formatTime(scan.scannedAtEpochMs);
+          if (!isOut && !timeIn) timeIn = label;
+          if (isOut) timeOut = label;
+        }
+        return {
+          date: date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }),
+          day: date.toLocaleDateString([], { weekday: "short" }),
+          timeIn,
+          timeOut,
+        };
+      });
+    }
+
+    function employeeFullName(employee) {
+      const given = [employee.firstName, employee.middleName].filter(Boolean).join(" ");
+      return [employee.lastName, given].filter(Boolean).join(", ");
+    }
+
+    function dtrPackets(employees, scans, from, to) {
+      const packets = [];
+      for (const employee of employees) {
+        const days = attendanceFor(employee, scans, from, to);
+        const chunk = 31;
+        const parts = Math.max(1, Math.ceil(days.length / chunk));
+        for (let index = 0; index < parts; index += 1) {
+          packets.push({
+            employee,
+            days: days.slice(index * chunk, (index + 1) * chunk),
+            part: index + 1,
+            parts,
+            from,
+            to,
+          });
+        }
+      }
+      return packets;
+    }
+
+    function selectedDtrEmployees() {
+      const id = document.querySelector("#dtr-employee").value;
+      const list = [...cachedEmployees].sort((a, b) => employeeFullName(a).localeCompare(employeeFullName(b)));
+      return id ? list.filter((employee) => employee.id === id) : list;
+    }
+
+    function dtrRange() {
+      const from = document.querySelector("#dtr-from").value;
+      const to = document.querySelector("#dtr-to").value;
+      if (!from || !to) throw new Error("Choose a From date and a To date.");
+      if (from > to) throw new Error("From must be on or before To.");
+      return { from, to };
+    }
+
+    function renderDtrPreview(packets) {
+      const host = document.querySelector("#dtr-preview");
+      if (!packets.length) {
+        host.innerHTML = `<p class="muted">No employees to print.</p>`;
+        return;
+      }
+      const pages = [];
+      for (let index = 0; index < packets.length; index += 2) {
+        pages.push(packets.slice(index, index + 2));
+      }
+      host.innerHTML = pages.map((page) => `
+        <div class="dtr-sheet">
+          ${page.map((packet) => dtrFormHtml(packet)).join("")}
+        </div>
+      `).join("");
+    }
+
+    function dtrFormHtml(packet) {
+      const employee = packet.employee;
+      const position = positionLabel(employee);
+      return `<article class="dtr-form">
+        <h3>DAILY TIME RECORD</h3>
+        <div class="dtr-meta">
+          <div><strong>${escapeHtml(employeeFullName(employee) || "—")}</strong></div>
+          <div>ID: ${escapeHtml(employee.employeeCode || "—")}</div>
+          <div>Position: ${escapeHtml(position || "—")}</div>
+          <div>House: ${escapeHtml(employee.house || "—")}</div>
+          <div>Area: ${escapeHtml(employee.areaAssigned || "—")}</div>
+          <div>Period: ${escapeHtml(packet.from)} to ${escapeHtml(packet.to)}${packet.parts > 1 ? ` (${packet.part}/${packet.parts})` : ""}</div>
+        </div>
+        <table>
+          <thead><tr><th>Date</th><th>Day</th><th>Time In</th><th>Time Out</th></tr></thead>
+          <tbody>
+            ${packet.days.map((day) => `<tr>
+              <td>${escapeHtml(day.date)}</td>
+              <td>${escapeHtml(day.day)}</td>
+              <td>${escapeHtml(day.timeIn || "")}</td>
+              <td>${escapeHtml(day.timeOut || "")}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+        <div class="dtr-sign"><span>Employee signature</span></div>
+      </article>`;
+    }
+
+    function pdfEscape(value) {
+      return String(value || "").replace(/[^\x20-\x7E]/g, "?").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+    }
+
+    function clipText(value, size, width) {
+      const clean = pdfEscape(value);
+      const max = Math.max(1, Math.floor(width / (size * 0.52)));
+      return clean.length > max ? `${clean.slice(0, max - 1)}.` : clean;
+    }
+
+    function drawDtrForm(packet, x, y, width, height) {
+      const employee = packet.employee;
+      const name = employeeFullName(employee);
+      const position = positionLabel(employee);
+      let out = "0.6 w\n";
+      out += `${x} ${y} ${width} ${height} re S\n`;
+      const left = x + 10;
+      const right = x + width - 10;
+      let cursor = y + height - 18;
+      out += `BT /F2 11 Tf ${left + 150} ${cursor} Td (${pdfEscape("DAILY TIME RECORD")}) Tj ET\n`;
+      cursor -= 16;
+      const meta = [
+        `Name: ${name || "-"}`,
+        `ID: ${employee.employeeCode || "-"}    Position: ${position || "-"}`,
+        `House: ${employee.house || "-"}    Area: ${employee.areaAssigned || "-"}`,
+        `Period: ${packet.from} to ${packet.to}${packet.parts > 1 ? ` (${packet.part}/${packet.parts})` : ""}`,
+      ];
+      for (const line of meta) {
+        out += `BT /F1 8 Tf ${left} ${cursor} Td (${clipText(line, 8, right - left)}) Tj ET\n`;
+        cursor -= 11;
+      }
+      cursor -= 2;
+      const tableWidth = right - left;
+      const columns = [
+        Math.round(tableWidth * 0.34),
+        Math.round(tableWidth * 0.16),
+        Math.round(tableWidth * 0.25),
+      ];
+      columns.push(tableWidth - columns[0] - columns[1] - columns[2]);
+      const tableLeft = left;
+      const rowH = Math.min(12, (cursor - (y + 36)) / (packet.days.length + 1));
+      const headerY = cursor - rowH;
+      out += `${tableLeft} ${headerY} ${columns.reduce((sum, value) => sum + value, 0)} ${rowH} re S\n`;
+      let columnX = tableLeft;
+      ["Date", "Day", "Time In", "Time Out"].forEach((label, index) => {
+        out += `BT /F2 7 Tf ${columnX + 2} ${headerY + 2.5} Td (${label}) Tj ET\n`;
+        if (index > 0) out += `${columnX} ${headerY} m ${columnX} ${headerY + rowH} l S\n`;
+        columnX += columns[index];
+      });
+      let rowY = headerY;
+      for (const day of packet.days) {
+        rowY -= rowH;
+        out += `${tableLeft} ${rowY} ${columns.reduce((sum, value) => sum + value, 0)} ${rowH} re S\n`;
+        const values = [day.date, day.day, day.timeIn || "", day.timeOut || ""];
+        columnX = tableLeft;
+        values.forEach((value, index) => {
+          out += `BT /F1 7 Tf ${columnX + 2} ${rowY + 2} Td (${clipText(value, 7, columns[index] - 4)}) Tj ET\n`;
+          if (index > 0) out += `${columnX} ${rowY} m ${columnX} ${rowY + rowH} l S\n`;
+          columnX += columns[index];
+        });
+      }
+      const signX = right - 160;
+      const signY = y + 22;
+      out += `${signX} ${signY} m ${right} ${signY} l S\n`;
+      out += `BT /F1 7 Tf ${signX + 34} ${signY - 10} Td (Employee signature) Tj ET\n`;
+      return out;
+    }
+
+    function buildDtrPdf(packets) {
+      const pageW = 595.28;
+      const pageH = 841.89;
+      const margin = 16;
+      const gap = 8;
+      const formW = pageW - margin * 2;
+      const formH = (pageH - margin * 2 - gap) / 2;
+      const streams = [];
+      for (let index = 0; index < packets.length; index += 2) {
+        const top = packets[index];
+        const bottom = packets[index + 1];
+        let stream = drawDtrForm(top, margin, margin + formH + gap, formW, formH);
+        if (bottom) stream += drawDtrForm(bottom, margin, margin, formW, formH);
+        streams.push(stream);
+      }
+      if (!streams.length) streams.push("");
+      const objects = [];
+      const add = (body) => {
+        objects.push(body);
+        return objects.length;
+      };
+      const fontId = add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+      const boldId = add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
+      const pagesId = 3;
+      const contentIds = [];
+      const pageIds = [];
+      let nextId = 4;
+      streams.forEach(() => {
+        contentIds.push(nextId);
+        nextId += 1;
+        pageIds.push(nextId);
+        nextId += 1;
+      });
+      const pageBody = pageIds.map((pageId, index) => {
+        const content = streams[index];
+        return [
+          `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+          `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /Font << /F1 ${fontId} 0 R /F2 ${boldId} 0 R >> >> /Contents ${contentIds[index]} 0 R >>`,
+        ];
+      });
+      objects.push(`<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`);
+      pageBody.forEach(([contentBody, pageObject]) => {
+        objects.push(contentBody);
+        objects.push(pageObject);
+      });
+      const catalogId = objects.length + 1;
+      objects.push(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+      let pdf = "%PDF-1.4\n";
+      const offsets = [0];
+      objects.forEach((body, index) => {
+        offsets.push(pdf.length);
+        pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+      });
+      const xref = pdf.length;
+      pdf += `xref\n0 ${objects.length + 1}\n`;
+      pdf += "0000000000 65535 f \n";
+      for (let index = 1; index < offsets.length; index += 1) {
+        pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+      }
+      pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF`;
+      return pdf;
+    }
+
+    async function currentDtrPackets() {
+      const { from, to } = dtrRange();
+      if (!cachedEmployees.length) await loadEmployees();
+      if (!cachedScans.length) await loadScans();
+      const employees = selectedDtrEmployees();
+      return { from, to, packets: dtrPackets(employees, cachedScans, from, to) };
+    }
+
+    async function refreshDtr() {
+      const status = document.querySelector("#dtr-status");
+      try {
+        const { packets } = await currentDtrPackets();
+        renderDtrPreview(packets);
+        const pages = Math.ceil(packets.length / 2);
+        status.textContent = `${packets.length} form${packets.length === 1 ? "" : "s"} on ${pages} page${pages === 1 ? "" : "s"}. Time In is the first scan of the day. Time Out is the last out.`;
+      } catch (error) {
+        status.textContent = error.message;
+        document.querySelector("#dtr-preview").innerHTML = "";
+      }
+    }
+
+    async function prepareDtr(employeeId) {
+      if (!document.querySelector("#dtr-from").value || !document.querySelector("#dtr-to").value) {
+        const bounds = monthBounds();
+        document.querySelector("#dtr-from").value = bounds.from;
+        document.querySelector("#dtr-to").value = bounds.to;
+      }
+      if (!cachedEmployees.length) await loadEmployees();
+      const select = document.querySelector("#dtr-employee");
+      const current = employeeId || select.value;
+      const list = [...cachedEmployees].sort((a, b) => employeeFullName(a).localeCompare(employeeFullName(b)));
+      select.innerHTML = `<option value="">All employees</option>${
+        list.map((employee) => `<option value="${escapeHtml(employee.id)}">${escapeHtml(employee.employeeCode ? `${employee.employeeCode} — ` : "")}${escapeHtml(employeeFullName(employee))}</option>`).join("")
+      }`;
+      if ([...select.options].some((option) => option.value === current)) select.value = current;
+      await refreshDtr();
+    }
+
+    async function exportDtrPdf() {
+      const status = document.querySelector("#dtr-status");
+      try {
+        const { from, to, packets } = await currentDtrPackets();
+        if (!packets.length) throw new Error("No employees to export.");
+        renderDtrPreview(packets);
+        const pdf = buildDtrPdf(packets);
+        const blob = new Blob([pdf], { type: "application/pdf" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `DTR-${from}-to-${to}.pdf`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        status.textContent = `Downloaded ${packets.length} form${packets.length === 1 ? "" : "s"}.`;
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    }
+
+    ["#dtr-from", "#dtr-to", "#dtr-employee"].forEach((selector) => {
+      document.querySelector(selector).addEventListener("change", () => {
+        if (!document.querySelector("#dtr-panel").classList.contains("hidden")) refreshDtr();
+      });
+    });
+    document.querySelector("#export-dtr").onclick = () => exportDtrPdf();
 
     api("/api/admin/session").then(async (session) => {
       if (!session.signedIn) return;
