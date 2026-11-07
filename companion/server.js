@@ -621,4 +621,44 @@ server.listen(PORT, HOST, () => {
   }
   console.log(`Admin login: ${ADMIN_USER} / ${ADMIN_PASSWORD}`);
   console.log(`Device key for the app: ${DEVICE_KEY}`);
+  console.log(`SHRIS upload: ${shrisBaseUrl()}`);
 });
+
+function shrisBaseUrl() {
+  try {
+    const saved = JSON.parse(fs.readFileSync(path.join(DATA_DIR, "shris.json"), "utf8"));
+    if (saved && saved.url) return String(saved.url).replace(/\/$/, "");
+  } catch {
+    // The hosted site is the default when no local address is saved.
+  }
+  return String(process.env.SHRIS_URL || "https://scifi.is-great.net").replace(/\/$/, "");
+}
+
+async function pushAttendanceToShris() {
+  const base = shrisBaseUrl();
+  let listed;
+  try {
+    const response = await fetch(`${base}/attendance/import_poll.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Device-Key": DEVICE_KEY },
+      body: "{}",
+    });
+    listed = await response.json();
+  } catch {
+    return;
+  }
+  if (!listed || !listed.job || !listed.job.token) return;
+  const records = attendanceRows(loadStore(), listed.job.from, listed.job.to);
+  try {
+    await fetch(`${base}/attendance/import_receive.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: listed.job.token, records }),
+    });
+  } catch (error) {
+    console.log(`SHRIS upload failed: ${error.message}`);
+  }
+}
+
+setInterval(pushAttendanceToShris, 4000);
+pushAttendanceToShris();
