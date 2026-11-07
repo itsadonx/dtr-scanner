@@ -8,6 +8,11 @@ object PasswordHasher {
     const val ITERATIONS = 12_000
     const val KEY_BITS = 256
 
+    fun hash(password: String): HashedPassword {
+        val salt = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }
+        return HashedPassword(bytesToHex(salt), bytesToHex(pbkdf2(password, salt)))
+    }
+
     fun verify(password: String, saltHex: String, expectedHashHex: String): Boolean {
         val salt = hexToBytes(saltHex) ?: return false
         val expected = hexToBytes(expectedHashHex) ?: return false
@@ -33,4 +38,13 @@ object PasswordHasher {
             null
         }
     }
+
+    private fun bytesToHex(bytes: ByteArray): String {
+        return bytes.joinToString("") { byte -> "%02x".format(byte) }
+    }
 }
+
+data class HashedPassword(
+    val saltHex: String,
+    val hashHex: String,
+)

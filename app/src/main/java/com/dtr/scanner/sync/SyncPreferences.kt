@@ -17,12 +17,17 @@ class SyncPreferences(context: Context) {
         get() = prefs.getString(KEY_GUARD, "").orEmpty()
         set(value) = prefs.edit().putString(KEY_GUARD, value.trim()).apply()
 
+    var activeGuardId: String
+        get() = prefs.getString(KEY_GUARD_ID, "").orEmpty()
+        set(value) = prefs.edit().putString(KEY_GUARD_ID, value.trim()).apply()
+
     companion object {
         const val DEFAULT_DEVICE_KEY = "dtr-sync-key"
         private const val PREFS_NAME = "cloud_sync"
         private const val KEY_URL = "server_url"
         private const val KEY_DEVICE = "device_key"
         private const val KEY_GUARD = "active_guard"
+        private const val KEY_GUARD_ID = "active_guard_id"
 
         fun normalizeUrl(value: String): String {
             val trimmed = value.trim().trimEnd('/')

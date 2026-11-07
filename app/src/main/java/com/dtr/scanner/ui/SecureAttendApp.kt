@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dtr.scanner.R
 import com.dtr.scanner.ScanViewModel
@@ -74,6 +75,7 @@ fun SecureAttendApp() {
     var settingsSection by rememberSaveable { mutableIntStateOf(SETTINGS_SECTION_FACES) }
     var activeScan by remember { mutableStateOf<ActiveScan?>(null) }
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
+    var showPasswordDialog by rememberSaveable { mutableStateOf(false) }
 
     var faceStatus by rememberSaveable { mutableStateOf("Blink once to check in.") }
     var enrollStatus by rememberSaveable { mutableStateOf("Blink and move your head to start enrollment.") }
@@ -131,6 +133,7 @@ fun SecureAttendApp() {
                     onQrScanned = { content ->
                         val result = viewModel.saveQrScan(content, records)
                         if (result.duplicate) {
+                            speechAnnouncer.beepError()
                             Toast.makeText(
                                 context,
                                 context.getString(R.string.qr_scan_duplicate_toast),
@@ -185,6 +188,7 @@ fun SecureAttendApp() {
                         }
                     },
                     onDuplicateCheckIn = {
+                        speechAnnouncer.beepError()
                         Toast.makeText(
                             context,
                             context.getString(R.string.face_scan_duplicate_toast),
@@ -228,6 +232,32 @@ fun SecureAttendApp() {
         return
     }
 
+    val drawerState = androidx.compose.material3.rememberDrawerState(androidx.compose.material3.DrawerValue.Closed)
+    val drawerScope = androidx.compose.runtime.rememberCoroutineScope()
+    androidx.compose.material3.ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            AppSidebar(
+                selectedTab = selectedTab,
+                guardName = guardName,
+                onSelect = { tab ->
+                    selectedTab = tab
+                    drawerScope.launch { drawerState.close() }
+                },
+                onChangePassword = {
+                    drawerScope.launch { drawerState.close() }
+                    showPasswordDialog = true
+                },
+                onLogout = {
+                    viewModel.logoutGuard()
+                    loggedIn = false
+                    guardName = ""
+                    selectedTab = TAB_DASHBOARD
+                    drawerScope.launch { drawerState.close() }
+                },
+            )
+        },
+    ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -237,8 +267,14 @@ fun SecureAttendApp() {
                     TAB_HISTORY -> stringResource(R.string.nav_history)
                     else -> stringResource(R.string.nav_settings)
                 },
-                showMenu = selectedTab == TAB_DASHBOARD,
+                showMenu = true,
+                onMenuClick = {
+                    drawerScope.launch {
+                        if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                    }
+                },
                 onLogout = {
+                    viewModel.logoutGuard()
                     loggedIn = false
                     guardName = ""
                     selectedTab = TAB_DASHBOARD
@@ -405,6 +441,7 @@ fun SecureAttendApp() {
             }
         }
     }
+    }
 
     if (showClearDialog) {
         var password by remember { mutableStateOf("") }
@@ -455,6 +492,16 @@ fun SecureAttendApp() {
                 TextButton(onClick = { showClearDialog = false }) {
                     Text("Cancel")
                 }
+            },
+        )
+    }
+
+    if (showPasswordDialog) {
+        ChangePasswordDialog(
+            onDismiss = { showPasswordDialog = false },
+            onCheckCurrent = { current, done -> viewModel.verifyGuardPassword(current, done) },
+            onSave = { current, newPassword, done ->
+                viewModel.changeGuardPassword(current, newPassword, done)
             },
         )
     }
@@ -548,4 +595,164 @@ private fun formatNow(): String {
     return java.time.Instant.now()
         .atZone(java.time.ZoneId.systemDefault())
         .format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+}
+
+@Composable
+private fun AppSidebar(
+    selectedTab: Int,
+    guardName: String,
+    onSelect: (Int) -> Unit,
+    onChangePassword: () -> Unit,
+    onLogout: () -> Unit,
+) {
+    androidx.compose.material3.ModalDrawerSheet(
+        modifier = Modifier.width(300.dp),
+    ) {
+        Text(
+            text = guardName.ifBlank { stringResource(R.string.app_name) },
+            style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp),
+        )
+        SidebarItem(stringResource(R.string.nav_dashboard), selectedTab == TAB_DASHBOARD) {
+            onSelect(TAB_DASHBOARD)
+        }
+        SidebarItem(stringResource(R.string.nav_history), selectedTab == TAB_HISTORY) {
+            onSelect(TAB_HISTORY)
+        }
+        SidebarItem(stringResource(R.string.nav_settings), selectedTab == TAB_SETTINGS) {
+            onSelect(TAB_SETTINGS)
+        }
+        SidebarItem(stringResource(R.string.change_password), false, onChangePassword)
+        SidebarItem(stringResource(R.string.nav_logout), false, onLogout)
+    }
+}
+
+@Composable
+private fun SidebarItem(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    androidx.compose.material3.NavigationDrawerItem(
+        label = { Text(label) },
+        selected = selected,
+        onClick = onClick,
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+    )
+}
+
+@Composable
+private fun ChangePasswordDialog(
+    onDismiss: () -> Unit,
+    onCheckCurrent: (String, (String?) -> Unit) -> Unit,
+    onSave: (String, String, (String?) -> Unit) -> Unit,
+) {
+    var step by remember { mutableIntStateOf(0) }
+    var current by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(stringResource(R.string.change_password)) },
+        text = {
+            Column {
+                if (step == 0) {
+                    Text(stringResource(R.string.change_password_current_hint))
+                    OutlinedTextField(
+                        value = current,
+                        onValueChange = { current = it; error = "" },
+                        label = { Text(stringResource(R.string.change_password_current)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                    )
+                } else {
+                    Text(stringResource(R.string.change_password_new_hint))
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it; error = "" },
+                        label = { Text(stringResource(R.string.change_password_new)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                    )
+                    OutlinedTextField(
+                        value = confirm,
+                        onValueChange = { confirm = it; error = "" },
+                        label = { Text(stringResource(R.string.change_password_confirm)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                    )
+                }
+                if (error.isNotEmpty()) {
+                    Text(
+                        text = error,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !busy,
+                onClick = {
+                    if (step == 0) {
+                        if (current.isBlank()) {
+                            error = "Enter your current password."
+                            return@TextButton
+                        }
+                        busy = true
+                        onCheckCurrent(current) { message ->
+                            busy = false
+                            if (message == null) {
+                                step = 1
+                                error = ""
+                            } else {
+                                error = message
+                            }
+                        }
+                    } else {
+                        if (newPassword.length < 4) {
+                            error = "New password must be at least 4 characters."
+                            return@TextButton
+                        }
+                        if (newPassword != confirm) {
+                            error = "New password and confirmation do not match."
+                            return@TextButton
+                        }
+                        busy = true
+                        onSave(current, newPassword) { message ->
+                            busy = false
+                            if (message == null) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Password changed.",
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                                onDismiss()
+                            } else {
+                                error = message
+                            }
+                        }
+                    }
+                },
+            ) {
+                Text(if (step == 0) "Next" else "Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") }
+        },
+    )
 }

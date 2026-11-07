@@ -1,8 +1,6 @@
 package com.dtr.scanner.speech
 
 import android.content.Context
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice
@@ -16,7 +14,6 @@ class AttendanceSpeechAnnouncer(
 ) {
     private val appContext = context.applicationContext
     private val preferences = SpeechPreferences(appContext)
-    private val beeper = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
     private var tts: TextToSpeech? = null
     @Volatile
     private var ready = false
@@ -38,28 +35,28 @@ class AttendanceSpeechAnnouncer(
     }
 
     fun announceFaceCheckIn(displayName: String) {
-        beep()
+        ScanSound.success()
         if (preferences.beepOnly || !preferences.enabled) return
         speak(displayName, preferences.attendancePhrase)
     }
 
     fun announceQrScan(qrContent: String, isOut: Boolean) {
-        beep()
+        ScanSound.success()
         if (preferences.beepOnly || !preferences.enabled) return
         val phrase = if (isOut) AttendancePhrase.TIME_OUT else AttendancePhrase.TIME_IN
         speak(qrContent, phrase)
     }
 
+    fun beepError() {
+        ScanSound.error()
+    }
+
     fun previewSample(sampleName: String = "Adonnis Pama") {
         if (preferences.beepOnly) {
-            beep()
+            ScanSound.success()
             return
         }
         speak(sampleName, preferences.attendancePhrase)
-    }
-
-    private fun beep() {
-        beeper.startTone(ToneGenerator.TONE_PROP_BEEP, 180)
     }
 
     private fun speak(displayName: String, phrase: AttendancePhrase) {
@@ -156,7 +153,6 @@ class AttendanceSpeechAnnouncer(
         tts?.shutdown()
         tts = null
         ready = false
-        beeper.release()
     }
 
     fun preferences(): SpeechPreferences = preferences

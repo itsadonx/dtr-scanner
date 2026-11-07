@@ -97,6 +97,23 @@ class CloudSync(
         ids.size
     }
 
+    suspend fun changePassword(guardId: String, currentPassword: String, newPassword: String): HashedPassword =
+        withContext(Dispatchers.IO) {
+            val base = preferences.serverUrl.trimEnd('/')
+            val response = request(
+                "POST",
+                "$base/api/sync/password",
+                JSONObject()
+                    .put("guardId", guardId)
+                    .put("currentPassword", currentPassword)
+                    .put("newPassword", newPassword),
+            )
+            HashedPassword(
+                saltHex = response.optString("passwordSalt"),
+                hashHex = response.optString("passwordHash"),
+            )
+        }
+
     private fun request(method: String, url: String, body: JSONObject?): JSONObject {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = method

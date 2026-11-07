@@ -141,6 +141,22 @@ function hashPassword(password, salt = crypto.randomBytes(16)) {
   return { passwordSalt: salt.toString("hex"), passwordHash: hash.toString("hex") };
 }
 
+function verifyPassword(password, saltHex, hashHex) {
+  try {
+    const actual = crypto.pbkdf2Sync(
+      String(password),
+      Buffer.from(String(saltHex), "hex"),
+      PBKDF2_ITERATIONS,
+      PBKDF2_KEY_BYTES,
+      "sha256",
+    );
+    const expected = Buffer.from(String(hashHex), "hex");
+    return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+  } catch {
+    return false;
+  }
+}
+
 function safeEqual(a, b) {
   const left = crypto.createHash("sha256").update(String(a)).digest();
   const right = crypto.createHash("sha256").update(String(b)).digest();
@@ -470,6 +486,41 @@ const server = http.createServer(async (req, res) => {
       }
       const store = loadStore();
       sendJson(res, 200, { guards: store.guards.map(syncGuard) });
+      return;
+    }
+
+    if (route === "POST /api/sync/password") {
+      if (!deviceAuthorized(req)) {
+        sendJson(res, 401, { error: "Wrong device key." });
+        return;
+      }
+      const body = await readBody(req);
+      const guardId = String(body.guardId || "").trim();
+      const currentPassword = String(body.currentPassword || "");
+      const newPassword = String(body.newPassword || "");
+      if (newPassword.length < 4) {
+        sendJson(res, 400, { error: "New password must be at least 4 characters." });
+        return;
+      }
+      const store = loadStore();
+      const guard = store.guards.find((item) => item.guardId.toLowerCase() === guardId.toLowerCase());
+      if (!guard || !guard.active) {
+        sendJson(res, 404, { error: "Guard account was not found." });
+        return;
+      }
+      if (!verifyPassword(currentPassword, guard.passwordSalt, guard.passwordHash)) {
+        sendJson(res, 401, { error: "Current password is wrong." });
+        return;
+      }
+      Object.assign(guard, hashPassword(newPassword));
+      guard.updatedAtEpochMs = Date.now();
+      saveStore(store);
+      sendJson(res, 200, {
+        ok: true,
+        passwordSalt: guard.passwordSalt,
+        passwordHash: guard.passwordHash,
+        updatedAtEpochMs: guard.updatedAtEpochMs,
+      });
       return;
     }
 

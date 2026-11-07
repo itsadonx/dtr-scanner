@@ -111,11 +111,77 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 else -> {
                     syncPreferences.activeGuardName = account.displayName
+                    syncPreferences.activeGuardId = account.guardId
                     LoginResult(success = true, displayName = account.displayName)
                 }
             }
             onResult(result)
         }
+    }
+
+    fun logoutGuard() {
+        syncPreferences.activeGuardName = ""
+        syncPreferences.activeGuardId = ""
+    }
+
+    fun verifyGuardPassword(password: String, onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            val account = currentGuardAccount()
+            val message = when {
+                account == null -> "Sign in again before changing the password."
+                !PasswordHasher.verify(password, account.passwordSalt, account.passwordHash) ->
+                    "Current password is wrong."
+                else -> null
+            }
+            onResult(message)
+        }
+    }
+
+    fun changeGuardPassword(currentPassword: String, newPassword: String, onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            val account = currentGuardAccount()
+            if (account == null) {
+                onResult("Sign in again before changing the password.")
+                return@launch
+            }
+            if (!PasswordHasher.verify(currentPassword, account.passwordSalt, account.passwordHash)) {
+                onResult("Current password is wrong.")
+                return@launch
+            }
+            if (newPassword.length < 4) {
+                onResult("New password must be at least 4 characters.")
+                return@launch
+            }
+            val hashed = if (syncPreferences.serverUrl.isBlank()) {
+                PasswordHasher.hash(newPassword)
+            } else {
+                val remote = runCatching {
+                    cloudSync.changePassword(account.guardId, currentPassword, newPassword)
+                }
+                if (remote.isFailure) {
+                    onResult(remote.exceptionOrNull()?.message ?: "Could not update the password online.")
+                    return@launch
+                }
+                remote.getOrThrow()
+            }
+            guardDao.updatePassword(
+                account.id,
+                hashed.saltHex,
+                hashed.hashHex,
+                System.currentTimeMillis(),
+            )
+            onResult(null)
+        }
+    }
+
+    private suspend fun currentGuardAccount(): com.dtr.scanner.data.GuardAccount? {
+        val byId = syncPreferences.activeGuardId
+        if (byId.isNotBlank()) {
+            guardDao.findByGuardId(byId)?.let { return it }
+        }
+        val byName = syncPreferences.activeGuardName
+        if (byName.isBlank()) return null
+        return guardDao.findByDisplayName(byName)
     }
 
     private suspend fun pushSyncStatus(): String {

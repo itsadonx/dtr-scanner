@@ -22,6 +22,7 @@ fun SecureTopBar(
     onBack: () -> Unit = {},
     onLogout: (() -> Unit)? = null,
     showMenu: Boolean = false,
+    onMenuClick: () -> Unit = {},
 ) {
     CenterAlignedTopAppBar(
         title = { Text(title) },
@@ -37,7 +38,7 @@ fun SecureTopBar(
                     }
                 }
                 showMenu -> {
-                    IconButton(onClick = { }) {
+                    IconButton(onClick = onMenuClick) {
                         Icon(Icons.Default.Menu, contentDescription = null, tint = Color.White)
                     }
                 }
