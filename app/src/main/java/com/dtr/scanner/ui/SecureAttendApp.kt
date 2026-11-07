@@ -83,6 +83,8 @@ fun SecureAttendApp() {
     var faceLivenessSession by rememberSaveable { mutableIntStateOf(0) }
     var enrollLivenessSession by rememberSaveable { mutableIntStateOf(0) }
     var faceScanUseFrontCamera by rememberSaveable { mutableStateOf(true) }
+    var qrUseFrontCamera by rememberSaveable { mutableStateOf(false) }
+    var qrContinuousScan by rememberSaveable { mutableStateOf(false) }
 
     val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
     val speechAnnouncer = rememberAttendanceSpeechAnnouncer()
@@ -131,6 +133,10 @@ fun SecureAttendApp() {
         ) { padding ->
             when (activeScan) {
                 ActiveScan.QR -> ScannerScreen(
+                    useFrontCamera = qrUseFrontCamera,
+                    onUseFrontCameraChange = { qrUseFrontCamera = it },
+                    continuousScan = qrContinuousScan,
+                    onContinuousScanChange = { qrContinuousScan = it },
                     onQrScanned = { content ->
                         val result = viewModel.saveQrScan(content, records)
                         if (result.duplicate) {
@@ -155,7 +161,7 @@ fun SecureAttendApp() {
                                 ),
                                 Toast.LENGTH_SHORT,
                             ).show()
-                            activeScan = null
+                            if (!qrContinuousScan) activeScan = null
                         }
                     },
                     modifier = Modifier

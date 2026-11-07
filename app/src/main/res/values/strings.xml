@@ -78,6 +78,7 @@
     <string name="backup_failed">Backup failed: %1$s</string>
     <string name="app_version_label">App version %1$s (build %2$d)</string>
     <string name="scan_qr_instruction">Position the QR code within the frame. First scan is Time In, second scan is Time Out.</string>
+    <string name="qr_continuous_scan">Continuous scan</string>
     <string name="qr_scan_in_toast">Time In at %1$s</string>
     <string name="qr_scan_out_toast">Time Out at %1$s</string>
     <string name="qr_scan_duplicate_toast">Same QR already scanned within 1 minute.</string>

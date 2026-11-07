@@ -72,6 +72,10 @@ fun ScanHubScreen(
         when (mode) {
             MODE_QR -> ScannerScreen(
                 onQrScanned = onQrScanned,
+                useFrontCamera = false,
+                onUseFrontCameraChange = {},
+                continuousScan = false,
+                onContinuousScanChange = {},
                 modifier = Modifier.fillMaxSize(),
             )
 

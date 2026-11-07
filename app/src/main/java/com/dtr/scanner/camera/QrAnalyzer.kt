@@ -19,10 +19,10 @@ class QrAnalyzer(
     )
 
     @Volatile
-    private var lastScanned: String? = null
+    private var heldValue: String? = null
 
     @Volatile
-    private var lastScanTimeMs: Long = 0L
+    private var lastSeenMs: Long = 0L
 
     @OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
@@ -39,16 +39,18 @@ class QrAnalyzer(
 
         scanner.process(inputImage)
             .addOnSuccessListener { barcodes ->
+                val now = System.currentTimeMillis()
                 val value = barcodes.firstOrNull()?.rawValue?.trim().orEmpty()
-                if (value.isNotEmpty()) {
-                    val now = System.currentTimeMillis()
-                    val isDuplicate = value == lastScanned && now - lastScanTimeMs < DUPLICATE_COOLDOWN_MS
-                    if (!isDuplicate) {
-                        lastScanned = value
-                        lastScanTimeMs = now
-                        onQrDetected(value)
+                if (value.isEmpty()) {
+                    if (heldValue != null && now - lastSeenMs >= ABSENT_RESET_MS) {
+                        heldValue = null
                     }
+                    return@addOnSuccessListener
                 }
+                lastSeenMs = now
+                if (value == heldValue) return@addOnSuccessListener
+                heldValue = value
+                onQrDetected(value)
             }
             .addOnCompleteListener {
                 imageProxy.close()
@@ -56,6 +58,7 @@ class QrAnalyzer(
     }
 
     companion object {
-        private const val DUPLICATE_COOLDOWN_MS = 2_500L
+        /** Same code is read once until it leaves the camera, so continuous scan does not beep again while it stays in frame. */
+        private const val ABSENT_RESET_MS = 1_200L
     }
 }
