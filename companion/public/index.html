@@ -127,6 +127,7 @@
       padding: 22px 22px 16px;
     }
     .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .page-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .page-head h2 { margin: 0; font-size: 28px; }
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 18px 0; }
     .stat {
@@ -265,6 +266,23 @@
       overflow: auto;
       padding-right: 4px;
     }
+    .dialog-scroll > .dialog-body { flex: 1; }
+    .qr-pick { display: flex; flex-direction: column; gap: 6px; }
+    .qr-pick label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+      padding: 8px 10px;
+      border: 1px solid #e4e8f2;
+      border-radius: 12px;
+      color: var(--ink);
+      font-size: 14px;
+    }
+    .qr-pick input { width: auto; margin: 0; }
+    .qr-sheet { display: flex; flex-wrap: wrap; gap: 16px 18px; align-items: flex-start; }
+    .qr-card { text-align: center; }
+    .qr-card small { display: block; margin-top: 4px; max-width: 1.8in; color: var(--muted); font-size: 11px; }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
     .qr-frame {
       width: fit-content;
@@ -335,9 +353,12 @@
             <h2 id="page-title">Guards</h2>
             <p id="page-sub" class="muted">Accounts the phone downloads for online and offline sign-in.</p>
           </div>
-          <button id="open-create" class="primary" type="button">Create account</button>
-          <button id="open-employee" class="primary hidden" type="button">Register employee</button>
-          <button id="export-dtr" class="primary hidden" type="button">Export PDF</button>
+          <div class="page-actions">
+            <button id="open-create" class="primary" type="button">Create account</button>
+            <button id="open-qr-batch" class="soft hidden" type="button">QR codes</button>
+            <button id="open-employee" class="primary hidden" type="button">Register employee</button>
+            <button id="export-dtr" class="primary hidden" type="button">Export PDF</button>
+          </div>
         </div>
 
         <div id="guard-stats" class="stats">
@@ -542,6 +563,29 @@
         <button class="primary" type="submit">Save</button>
       </div>
     </form>
+  </div>
+
+  <div id="modal-qr-batch" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="dialog wide dialog-scroll">
+      <h2>QR codes</h2>
+      <p class="muted" id="qr-batch-hint">Choose who to include. Each code is 1×1 inch, with the white border you last set.</p>
+      <div id="qr-batch-pick" class="dialog-body">
+        <div class="qr-pick" id="qr-pick-list"></div>
+      </div>
+      <div id="qr-batch-sheet" class="dialog-body hidden">
+        <div id="qr-print-sheet" class="qr-sheet"></div>
+      </div>
+      <p id="qr-batch-error" class="error"></p>
+      <div class="dialog-actions" id="qr-batch-actions-pick">
+        <button class="soft" type="button" data-close>Cancel</button>
+        <button class="primary" type="button" id="qr-batch-proceed">Show QR codes</button>
+      </div>
+      <div class="dialog-actions hidden" id="qr-batch-actions-sheet">
+        <button class="soft" type="button" id="qr-batch-back">Back</button>
+        <button class="soft" type="button" id="qr-batch-print">Print</button>
+        <button class="primary" type="button" id="qr-batch-pdf">Export PDF</button>
+      </div>
+    </div>
   </div>
 
   <div id="modal-delete" class="modal hidden" role="dialog" aria-modal="true">
@@ -1025,6 +1069,211 @@
       link.click();
     }
 
+    function employeePayload(employee) {
+      if (employee.qrPayload) return employee.qrPayload;
+      if (!employee.employeeCode || !employee.lastName || !employee.firstName) return "";
+      return [employee.employeeCode, employee.lastName, employee.firstName, employee.middleName || ""].join(",");
+    }
+
+    let qrBatchEntries = [];
+
+    function showQrBatchStep(sheet) {
+      document.querySelector("#qr-batch-pick").classList.toggle("hidden", sheet);
+      document.querySelector("#qr-batch-actions-pick").classList.toggle("hidden", sheet);
+      document.querySelector("#qr-batch-sheet").classList.toggle("hidden", !sheet);
+      document.querySelector("#qr-batch-actions-sheet").classList.toggle("hidden", !sheet);
+      document.querySelector("#qr-batch-hint").textContent = sheet
+        ? "Each QR is 1×1 inch. Print them or export a PDF. The white border and cut line use the thickness you last set."
+        : "Choose who to include. Each code is 1×1 inch, with the white border you last set.";
+    }
+
+    function openQrBatch() {
+      const list = document.querySelector("#qr-pick-list");
+      document.querySelector("#qr-batch-error").textContent = "";
+      showQrBatchStep(false);
+      const rows = cachedEmployees.map((employee) => {
+        const ready = Boolean(employeePayload(employee));
+        const name = employeeFullName(employee) || "No name";
+        return `<label>
+          <input type="checkbox" value="${escapeHtml(employee.id)}" ${ready ? "checked" : "disabled"} />
+          <span>${escapeHtml(employee.employeeCode || "No ID")} — ${escapeHtml(name)}${ready ? "" : " (no QR text)"}</span>
+        </label>`;
+      }).join("");
+      list.innerHTML = rows || `<p class="muted">No employees yet.</p>`;
+      const boxes = [...list.querySelectorAll("input")];
+      const all = document.createElement("label");
+      all.innerHTML = `<input type="checkbox" id="qr-check-all" ${boxes.some((box) => box.checked) ? "checked" : ""} /><span>All employees</span>`;
+      if (boxes.length) list.prepend(all);
+      const master = document.querySelector("#qr-check-all");
+      if (master) {
+        master.onchange = () => {
+          boxes.forEach((box) => {
+            if (!box.disabled) box.checked = master.checked;
+          });
+        };
+        boxes.forEach((box) => {
+          box.onchange = () => {
+            master.checked = boxes.filter((item) => !item.disabled).every((item) => item.checked);
+          };
+        });
+      }
+      openModal("#modal-qr-batch");
+    }
+
+    function selectedQrEmployees() {
+      return [...document.querySelectorAll("#qr-pick-list input:checked")]
+        .map((box) => cachedEmployees.find((employee) => employee.id === box.value))
+        .filter((employee) => employee && employeePayload(employee));
+    }
+
+    function renderQrBatch(employees) {
+      const sheet = document.querySelector("#qr-print-sheet");
+      sheet.innerHTML = "";
+      qrBatchEntries = employees.map((employee) => {
+        const canvas = framedQrCanvas(employeePayload(employee), 300);
+        const caption = [employee.employeeCode, employeeFullName(employee)].filter(Boolean).join(" — ");
+        const card = document.createElement("div");
+        card.className = "qr-card";
+        const label = document.createElement("small");
+        label.textContent = caption;
+        card.appendChild(canvas);
+        card.appendChild(label);
+        sheet.appendChild(card);
+        return { canvas, caption };
+      });
+      showQrBatchStep(true);
+    }
+
+    function printQrBatch() {
+      if (!qrBatchEntries.length) return;
+      const win = window.open("", "_blank");
+      if (!win) {
+        document.querySelector("#qr-batch-error").textContent = "Allow pop-ups to print the QR codes.";
+        return;
+      }
+      win.document.open();
+      win.document.write(`<!DOCTYPE html><html><head><title>QR codes</title><style>
+        @page { size: A4; margin: 12mm; }
+        body { margin: 0; font-family: Arial, sans-serif; }
+        .sheet { display: flex; flex-wrap: wrap; gap: 0.18in 0.22in; }
+        .card { text-align: center; break-inside: avoid; page-break-inside: avoid; }
+        small { display: block; font-size: 9px; margin-top: 2px; max-width: 1.8in; }
+      </style></head><body><div class="sheet" id="sheet"></div></body></html>`);
+      win.document.close();
+      const sheet = win.document.getElementById("sheet");
+      qrBatchEntries.forEach((entry) => {
+        const card = win.document.createElement("div");
+        card.className = "card";
+        const copy = win.document.createElement("canvas");
+        copy.width = entry.canvas.width;
+        copy.height = entry.canvas.height;
+        copy.style.width = entry.canvas.style.width;
+        copy.style.height = entry.canvas.style.height;
+        copy.getContext("2d").drawImage(entry.canvas, 0, 0);
+        const label = win.document.createElement("small");
+        label.textContent = entry.caption;
+        card.appendChild(copy);
+        card.appendChild(label);
+        sheet.appendChild(card);
+      });
+      win.focus();
+      win.print();
+    }
+
+    function jpegBytes(canvas) {
+      const data = canvas.toDataURL("image/jpeg", 0.92);
+      const raw = atob(data.slice(data.indexOf(",") + 1));
+      const bytes = new Uint8Array(raw.length);
+      for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
+      return bytes;
+    }
+
+    function concatBytes(chunks) {
+      const size = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const out = new Uint8Array(size);
+      let offset = 0;
+      chunks.forEach((chunk) => {
+        out.set(chunk, offset);
+        offset += chunk.length;
+      });
+      return out;
+    }
+
+    function buildQrSheetPdf(entries) {
+      const pageW = 595.28;
+      const pageH = 841.89;
+      const margin = 28;
+      const gap = 12;
+      const labelH = 14;
+      const box = (entries[0].canvas.width / 300) * 72;
+      const cols = Math.max(1, Math.floor((pageW - margin * 2 + gap) / (box + gap)));
+      const rows = Math.max(1, Math.floor((pageH - margin * 2 + gap) / (box + labelH + gap)));
+      const pages = [];
+      for (let index = 0; index < entries.length; index += cols * rows) {
+        pages.push(entries.slice(index, index + cols * rows));
+      }
+      const encoder = new TextEncoder();
+      const bodies = [];
+      const add = (bytes) => {
+        bodies.push(bytes);
+        return bodies.length;
+      };
+      const fontId = add(encoder.encode("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"));
+      const imageIds = pages.map((page) => page.map((entry) => {
+        const jpeg = jpegBytes(entry.canvas);
+        const header = encoder.encode(`<< /Type /XObject /Subtype /Image /Width ${entry.canvas.width} /Height ${entry.canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
+        const footer = encoder.encode("\nendstream");
+        return add(concatBytes([header, jpeg, footer]));
+      }));
+      const pagesId = add(encoder.encode(""));
+      const pageIds = pages.map((page, pageIndex) => {
+        let stream = "";
+        page.forEach((entry, index) => {
+          const col = index % cols;
+          const row = Math.floor(index / cols);
+          const x = margin + col * (box + gap);
+          const y = pageH - margin - (row + 1) * (box + labelH) - row * gap + labelH;
+          const caption = clipText(entry.caption, 7, box);
+          const textX = x + Math.max(0, (box - caption.length * 3.4) / 2);
+          stream += `q\n${box.toFixed(2)} 0 0 ${box.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm\n/Im${index} Do\nQ\n`;
+          stream += `BT /F1 7 Tf ${textX.toFixed(2)} ${(y - 10).toFixed(2)} Td (${caption}) Tj ET\n`;
+        });
+        const contentId = add(encoder.encode(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`));
+        const xobjects = page.map((_, index) => `/Im${index} ${imageIds[pageIndex][index]} 0 R`).join(" ");
+        return add(encoder.encode(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${pageW} ${pageH}] /CropBox [0 0 ${pageW} ${pageH}] /Resources << /Font << /F1 ${fontId} 0 R >> /XObject << ${xobjects} >> >> /Contents ${contentId} 0 R >>`));
+      });
+      bodies[pagesId - 1] = encoder.encode(`<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`);
+      const catalogId = add(encoder.encode(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`));
+      const chunks = [encoder.encode("%PDF-1.4\n")];
+      const offsets = [0];
+      let length = chunks[0].length;
+      bodies.forEach((body, index) => {
+        offsets.push(length);
+        const head = encoder.encode(`${index + 1} 0 obj\n`);
+        const tail = encoder.encode("\nendobj\n");
+        chunks.push(head, body, tail);
+        length += head.length + body.length + tail.length;
+      });
+      let xref = `xref\n0 ${bodies.length + 1}\n0000000000 65535 f \n`;
+      for (let index = 1; index < offsets.length; index += 1) {
+        xref += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+      }
+      xref += `trailer\n<< /Size ${bodies.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${length}\n%%EOF`;
+      chunks.push(encoder.encode(xref));
+      return concatBytes(chunks);
+    }
+
+    function downloadQrBatchPdf() {
+      if (!qrBatchEntries.length) return;
+      const bytes = buildQrSheetPdf(qrBatchEntries);
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "employee-qr-codes.pdf";
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
     function refreshEmployeeQr() {
       document.querySelector("#emp-note-wrap").classList.toggle(
         "hidden",
@@ -1109,6 +1358,27 @@
     });
 
     document.querySelector("#open-employee").onclick = () => openEmployeeForm(null);
+    document.querySelector("#open-qr-batch").onclick = () => openQrBatch();
+    document.querySelector("#qr-batch-proceed").onclick = () => {
+      const error = document.querySelector("#qr-batch-error");
+      error.textContent = "";
+      if (typeof QRCode === "undefined") {
+        error.textContent = "QR generator did not load. Refresh the page and try again.";
+        return;
+      }
+      const employees = selectedQrEmployees();
+      if (!employees.length) {
+        error.textContent = "Choose at least one employee.";
+        return;
+      }
+      renderQrBatch(employees);
+    };
+    document.querySelector("#qr-batch-back").onclick = () => {
+      document.querySelector("#qr-batch-error").textContent = "";
+      showQrBatchStep(false);
+    };
+    document.querySelector("#qr-batch-print").onclick = () => printQrBatch();
+    document.querySelector("#qr-batch-pdf").onclick = () => downloadQrBatchPdf();
     ["#emp-code", "#emp-last", "#emp-first", "#emp-middle", "#emp-position"].forEach((selector) => {
       document.querySelector(selector).addEventListener("input", refreshEmployeeQr);
       document.querySelector(selector).addEventListener("change", refreshEmployeeQr);
@@ -1184,6 +1454,7 @@
       document.querySelector("#scan-stats").classList.toggle("hidden", which !== "history");
       document.querySelector("#open-create").classList.toggle("hidden", which !== "guards");
       document.querySelector("#open-employee").classList.toggle("hidden", which !== "employees");
+      document.querySelector("#open-qr-batch").classList.toggle("hidden", which !== "employees");
       document.querySelector("#export-dtr").classList.toggle("hidden", which !== "dtr");
       document.querySelector("#page-title").textContent = titles[which][0];
       document.querySelector("#page-sub").textContent = titles[which][1];
