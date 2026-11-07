@@ -280,9 +280,18 @@
       font-size: 14px;
     }
     .qr-pick input { width: auto; margin: 0; }
-    .qr-sheet { display: flex; flex-wrap: wrap; gap: 16px 18px; align-items: flex-start; }
-    .qr-card { text-align: center; }
-    .qr-card small { display: block; margin-top: 4px; max-width: 1.8in; color: var(--muted); font-size: 11px; }
+    .qr-sheet { display: flex; flex-wrap: wrap; gap: 0.2in; align-items: flex-start; }
+    .qr-card { position: relative; text-align: center; }
+    .qr-card small {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 100%;
+      margin-top: 1px;
+      color: var(--muted);
+      font-size: 8px;
+      line-height: 1;
+    }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
     .qr-frame {
       width: fit-content;
@@ -1155,9 +1164,9 @@
       win.document.write(`<!DOCTYPE html><html><head><title>QR codes</title><style>
         @page { size: A4; margin: 12mm; }
         body { margin: 0; font-family: Arial, sans-serif; }
-        .sheet { display: flex; flex-wrap: wrap; gap: 0.18in 0.22in; }
-        .card { text-align: center; break-inside: avoid; page-break-inside: avoid; }
-        small { display: block; font-size: 9px; margin-top: 2px; max-width: 1.8in; }
+        .sheet { display: flex; flex-wrap: wrap; gap: 0.2in; align-items: flex-start; }
+        .card { position: relative; text-align: center; break-inside: avoid; page-break-inside: avoid; }
+        small { position: absolute; left: 0; right: 0; top: 100%; margin-top: 1px; font-size: 7px; line-height: 1; }
       </style></head><body><div class="sheet" id="sheet"></div></body></html>`);
       win.document.close();
       const sheet = win.document.getElementById("sheet");
@@ -1203,11 +1212,10 @@
       const pageW = 595.28;
       const pageH = 841.89;
       const margin = 28;
-      const gap = 12;
-      const labelH = 14;
+      const gap = 0.2 * 72;
       const box = (entries[0].canvas.width / 300) * 72;
       const cols = Math.max(1, Math.floor((pageW - margin * 2 + gap) / (box + gap)));
-      const rows = Math.max(1, Math.floor((pageH - margin * 2 + gap) / (box + labelH + gap)));
+      const rows = Math.max(1, Math.floor((pageH - margin * 2 + gap) / (box + gap)));
       const pages = [];
       for (let index = 0; index < entries.length; index += cols * rows) {
         pages.push(entries.slice(index, index + cols * rows));
@@ -1232,7 +1240,7 @@
           const col = index % cols;
           const row = Math.floor(index / cols);
           const x = margin + col * (box + gap);
-          const y = pageH - margin - (row + 1) * (box + labelH) - row * gap + labelH;
+          const y = pageH - margin - box - row * (box + gap);
           const caption = clipText(entry.caption, 7, box);
           const textX = x + Math.max(0, (box - caption.length * 3.4) / 2);
           stream += `q\n${box.toFixed(2)} 0 0 ${box.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm\n/Im${index} Do\nQ\n`;
