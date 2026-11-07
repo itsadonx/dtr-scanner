@@ -68,6 +68,7 @@ function makeEmployee(fields) {
     areaAssigned: fields.areaAssigned || "",
     position: fields.position || "",
     positionNote: fields.positionNote || "",
+    dtrNote: fields.dtrNote || "",
     qrPayload: fields.qrPayload,
     source: fields.source || "manual",
     createdAtEpochMs: now,
@@ -113,6 +114,7 @@ function publicEmployee(employee) {
     areaAssigned: employee.areaAssigned,
     position: employee.position,
     positionNote: employee.positionNote,
+    dtrNote: employee.dtrNote || "",
     qrPayload: employee.qrPayload,
     source: employee.source,
     updatedAtEpochMs: employee.updatedAtEpochMs,
@@ -465,6 +467,7 @@ const server = http.createServer(async (req, res) => {
         house: String(body.house || "").trim(),
         areaAssigned: String(body.areaAssigned || "").trim(),
         ...placement,
+        dtrNote: String(body.dtrNote || "").trim(),
         qrPayload: [employeeCode, lastName, firstName, middleName].join(","),
         source: "manual",
       });
@@ -488,6 +491,7 @@ const server = http.createServer(async (req, res) => {
       employee.areaAssigned = String(body.areaAssigned || "").trim();
       employee.position = placement.position;
       employee.positionNote = placement.positionNote;
+      employee.dtrNote = String(body.dtrNote || "").trim();
       if (employee.source !== "scan") {
         const employeeCode = String(body.employeeCode || employee.employeeCode).trim();
         const lastName = String(body.lastName || employee.lastName).trim();

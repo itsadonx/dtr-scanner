@@ -44,7 +44,7 @@
     .login-card h1 { margin: 0 0 6px; font-size: 28px; }
     .login-card h1 span { color: var(--blue); }
     label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-    input, select {
+    input, select, textarea {
       width: 100%;
       padding: 11px 12px;
       border: 1px solid #e4e8f2;
@@ -53,6 +53,7 @@
       margin-bottom: 12px;
       color: var(--ink);
     }
+    textarea { min-height: 64px; resize: vertical; }
     .primary {
       background: var(--blue);
       color: white;
@@ -191,8 +192,11 @@
     .dtr-form .dtr-meta { display: grid; grid-template-columns: 1fr; gap: 2px; margin: 6px 0; }
     .dtr-form table { min-width: 0; }
     .dtr-form th, .dtr-form td { padding: 2px 4px; font-size: 10px; }
-    .dtr-sign { display: flex; justify-content: flex-end; margin-top: 8px; }
-    .dtr-sign span { width: 180px; border-top: 1px solid #1e2433; text-align: center; padding-top: 3px; font-size: 10px; }
+    .dtr-note { min-height: 32px; margin-top: 8px; font-size: 10px; }
+    .dtr-sign { display: flex; justify-content: space-between; gap: 16px; margin-top: 14px; }
+    .dtr-sign div { flex: 1; text-align: center; }
+    .dtr-sign strong { display: block; font-size: 11px; line-height: 1; }
+    .dtr-sign span { display: block; border-top: 1px solid #1e2433; margin-top: -6px; padding-top: 10px; font-size: 9px; }
     table { width: 100%; border-collapse: collapse; min-width: 860px; }
     th, td { text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
     th {
@@ -500,6 +504,10 @@
         <div id="emp-note-wrap" class="hidden">
           <label for="emp-note">Other position</label>
           <input id="emp-note" placeholder="Type the position" />
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="emp-dtr-note">Note</label>
+          <textarea id="emp-dtr-note" placeholder="Note printed on this person's DTR"></textarea>
         </div>
       </div>
       <label for="qr-white">White border <span id="qr-white-value">18%</span></label>
@@ -1056,12 +1064,13 @@
       document.querySelector("#emp-area").value = employee ? employee.areaAssigned : "";
       document.querySelector("#emp-position").value = employee ? employee.position : "";
       document.querySelector("#emp-note").value = employee ? employee.positionNote : "";
+      document.querySelector("#emp-dtr-note").value = employee ? (employee.dtrNote || "") : "";
       employeeLocked = Boolean(employee && employee.source === "scan");
       ["#emp-code", "#emp-last", "#emp-first", "#emp-middle"].forEach((selector) => {
         document.querySelector(selector).readOnly = employeeLocked;
       });
       document.querySelector("#employee-hint").textContent = employeeLocked
-        ? "Name and ID come from the scan, so the QR stays the same. Add house, area, and position."
+        ? "Name and ID come from the scan, so the QR stays the same. Add house, area, position, and a DTR note."
         : "The QR text is ID, last name, first name, middle name, the same format the scanner reads.";
       refreshEmployeeQr();
       openModal("#modal-employee");
@@ -1102,6 +1111,7 @@
         areaAssigned: document.querySelector("#emp-area").value,
         position: document.querySelector("#emp-position").value,
         positionNote: document.querySelector("#emp-note").value,
+        dtrNote: document.querySelector("#emp-dtr-note").value,
       };
       const recordId = document.querySelector("#employee-record").value;
       if (!recordId && (!body.employeeCode.trim() || !body.lastName.trim() || !body.firstName.trim() || !body.middleName.trim())) {
@@ -1217,17 +1227,30 @@
         const list = (byDay.get(key) || []).sort((a, b) => a.scannedAtEpochMs - b.scannedAtEpochMs);
         let timeIn = "";
         let timeOut = "";
+        let inMs = 0;
+        let outMs = 0;
         for (const scan of list) {
           const isOut = String(scan.attendanceDirection || "IN").toUpperCase() === "OUT";
           const label = formatTime(scan.scannedAtEpochMs);
-          if (!isOut && !timeIn) timeIn = label;
-          if (isOut) timeOut = label;
+          if (!isOut && !timeIn) {
+            timeIn = label;
+            inMs = scan.scannedAtEpochMs;
+          }
+          if (isOut) {
+            timeOut = label;
+            outMs = scan.scannedAtEpochMs;
+          }
+        }
+        let hours = "";
+        if (inMs && outMs && outMs > inMs) {
+          hours = ((outMs - inMs) / 3600000).toFixed(2);
         }
         return {
           date: date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }),
           day: date.toLocaleDateString([], { weekday: "short" }),
           timeIn,
           timeOut,
+          hours,
         };
       });
     }
@@ -1302,17 +1325,23 @@
           <div>Period: ${escapeHtml(packet.from)} to ${escapeHtml(packet.to)}${packet.parts > 1 ? ` (${packet.part}/${packet.parts})` : ""}</div>
         </div>
         <table>
-          <thead><tr><th>Date</th><th>Day</th><th>Time In</th><th>Time Out</th></tr></thead>
+          <thead><tr><th>Date</th><th>Day</th><th>Time In</th><th>Time Out</th><th>Hours</th></tr></thead>
           <tbody>
             ${packet.days.map((day) => `<tr>
               <td>${escapeHtml(day.date)}</td>
               <td>${escapeHtml(day.day)}</td>
               <td>${escapeHtml(day.timeIn || "")}</td>
               <td>${escapeHtml(day.timeOut || "")}</td>
+              <td>${escapeHtml(day.hours || "")}</td>
             </tr>`).join("")}
           </tbody>
         </table>
-        <div class="dtr-sign"><span>Employee signature</span></div>
+        <div class="dtr-note"><strong>Total hours:</strong> ${packet.days.reduce((sum, day) => sum + (Number(day.hours) || 0), 0).toFixed(2)}</div>
+        <div class="dtr-note"><strong>Note:</strong> ${escapeHtml(employee.dtrNote || "")}</div>
+        <div class="dtr-sign">
+          <div><strong>${escapeHtml(employeeFullName(employee) || "")}</strong><span>Signature</span></div>
+          <div><strong>&nbsp;</strong><span>Acknowledged by</span></div>
+        </div>
       </article>`;
     }
 
@@ -1353,17 +1382,18 @@
       cursor -= 2;
       const tableWidth = right - left;
       const columns = [
-        Math.round(tableWidth * 0.34),
-        Math.round(tableWidth * 0.16),
-        Math.round(tableWidth * 0.25),
+        Math.round(tableWidth * 0.28),
+        Math.round(tableWidth * 0.14),
+        Math.round(tableWidth * 0.22),
+        Math.round(tableWidth * 0.22),
       ];
-      columns.push(tableWidth - columns[0] - columns[1] - columns[2]);
+      columns.push(tableWidth - columns[0] - columns[1] - columns[2] - columns[3]);
       const tableLeft = left;
-      const rowH = Math.min(12, (cursor - (y + 36)) / (packet.days.length + 1));
+      const rowH = Math.min(12, (cursor - (y + 92)) / (packet.days.length + 1));
       const headerY = cursor - rowH;
       out += `${tableLeft} ${headerY} ${columns.reduce((sum, value) => sum + value, 0)} ${rowH} re S\n`;
       let columnX = tableLeft;
-      ["Date", "Day", "Time In", "Time Out"].forEach((label, index) => {
+      ["Date", "Day", "In", "Out", "Hrs"].forEach((label, index) => {
         out += `BT /F2 7 Tf ${columnX + 2} ${headerY + 2.5} Td (${label}) Tj ET\n`;
         if (index > 0) out += `${columnX} ${headerY} m ${columnX} ${headerY + rowH} l S\n`;
         columnX += columns[index];
@@ -1372,7 +1402,7 @@
       for (const day of packet.days) {
         rowY -= rowH;
         out += `${tableLeft} ${rowY} ${columns.reduce((sum, value) => sum + value, 0)} ${rowH} re S\n`;
-        const values = [day.date, day.day, day.timeIn || "", day.timeOut || ""];
+        const values = [day.date, day.day, day.timeIn || "", day.timeOut || "", day.hours || ""];
         columnX = tableLeft;
         values.forEach((value, index) => {
           out += `BT /F1 7 Tf ${columnX + 2} ${rowY + 2} Td (${clipText(value, 7, columns[index] - 4)}) Tj ET\n`;
@@ -1380,10 +1410,36 @@
           columnX += columns[index];
         });
       }
-      const signX = right - 160;
-      const signY = y + 22;
-      out += `${signX} ${signY} m ${right} ${signY} l S\n`;
-      out += `BT /F1 7 Tf ${signX + 34} ${signY - 10} Td (Employee signature) Tj ET\n`;
+      const totalHours = packet.days.reduce((sum, day) => sum + (Number(day.hours) || 0), 0);
+      out += `BT /F2 7 Tf ${left} ${y + 80} Td (Total hours: ${totalHours.toFixed(2)}) Tj ET\n`;
+      const noteTop = y + 66;
+      out += `BT /F2 7 Tf ${left} ${noteTop} Td (Note:) Tj ET\n`;
+      const noteLines = String(employee.dtrNote || "").split(/\r?\n/).flatMap((line) => {
+        const width = right - left - 28;
+        const size = 7;
+        const max = Math.max(8, Math.floor(width / (size * 0.5)));
+        const clean = pdfEscape(line);
+        if (!clean) return [""];
+        const pieces = [];
+        for (let index = 0; index < clean.length && pieces.length < 2; index += max) {
+          pieces.push(clean.slice(index, index + max));
+        }
+        return pieces;
+      }).slice(0, 2);
+      noteLines.forEach((line, index) => {
+        out += `BT /F1 7 Tf ${left + 28} ${noteTop - index * 9} Td (${line}) Tj ET\n`;
+      });
+      const gap = 12;
+      const signW = (right - left - gap) / 2;
+      const signY = y + 24;
+      const name = clipText(employeeFullName(employee), 7, signW - 4);
+      const nameWidth = name.length * 3.4;
+      out += `${left} ${signY} m ${left + signW} ${signY} l S\n`;
+      out += `BT /F2 7 Tf ${left + Math.max(2, (signW - nameWidth) / 2)} ${signY + 2} Td (${name}) Tj ET\n`;
+      out += `BT /F1 6 Tf ${left + signW / 2 - 22} ${signY - 9} Td (Signature) Tj ET\n`;
+      const ackX = left + signW + gap;
+      out += `${ackX} ${signY} m ${right} ${signY} l S\n`;
+      out += `BT /F1 6 Tf ${ackX + signW / 2 - 32} ${signY - 9} Td (Acknowledged by) Tj ET\n`;
       return out;
     }
 
