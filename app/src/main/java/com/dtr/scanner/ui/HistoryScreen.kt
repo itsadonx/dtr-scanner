@@ -10,12 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.Color
@@ -41,7 +37,6 @@ private val dtrTimeFormatter: DateTimeFormatter =
 @Composable
 fun HistoryScreen(
     records: List<ScanRecord>,
-    onDelete: (Long) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
@@ -77,7 +72,6 @@ fun HistoryScreen(
         items(records, key = { it.id }) { record ->
             ScanRecordRow(
                 record = record,
-                onDelete = onDelete,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
@@ -90,7 +84,6 @@ fun HistoryScreen(
 @Composable
 private fun ScanRecordRow(
     record: ScanRecord,
-    onDelete: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val localTime = Instant.ofEpochMilli(record.scannedAtEpochMs)
@@ -118,15 +111,6 @@ private fun ScanRecordRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp),
             )
-            IconButton(
-                onClick = { onDelete(record.id) },
-                modifier = Modifier.padding(top = 4.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete scan",
-                )
-            }
         }
     }
 }

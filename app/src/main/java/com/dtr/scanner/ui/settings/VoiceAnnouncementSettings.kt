@@ -33,6 +33,7 @@ fun VoiceAnnouncementSettings(
 ) {
     val prefs = remember { announcer.preferences() }
     var enabled by remember { mutableStateOf(prefs.enabled) }
+    var beepOnly by remember { mutableStateOf(prefs.beepOnly) }
     var rate by remember { mutableFloatStateOf(prefs.speechRate) }
     var pitch by remember { mutableFloatStateOf(prefs.pitch) }
     var phrase by remember { mutableStateOf(prefs.attendancePhrase) }
@@ -55,6 +56,14 @@ fun VoiceAnnouncementSettings(
             onCheckedChange = {
                 enabled = it
                 prefs.enabled = it
+            },
+        )
+        VoiceToggleRow(
+            label = stringResource(R.string.settings_voice_beep_only),
+            checked = beepOnly,
+            onCheckedChange = {
+                beepOnly = it
+                prefs.beepOnly = it
             },
         )
 

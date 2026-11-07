@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
@@ -16,8 +17,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -281,7 +284,6 @@ fun SecureAttendApp() {
 
             TAB_HISTORY -> HistoryScreen(
                 records = records,
-                onDelete = viewModel::deleteRecord,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = innerPadding,
             )
@@ -405,15 +407,45 @@ fun SecureAttendApp() {
     }
 
     if (showClearDialog) {
+        var password by remember { mutableStateOf("") }
+        var passwordWrong by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            title = { Text("Clear all records?") },
-            text = { Text("This removes every saved QR scan and face check-in from this device.") },
+            title = { Text(stringResource(R.string.clear_history_password_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.clear_history_password_message))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = {
+                            password = it
+                            passwordWrong = false
+                        },
+                        label = { Text(stringResource(R.string.clear_history_password_label)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                    )
+                    if (passwordWrong) {
+                        Text(
+                            text = stringResource(R.string.clear_history_password_wrong),
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                }
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.clearAll()
-                        showClearDialog = false
+                        if (password == CLEAR_ATTENDANCE_PASSWORD) {
+                            viewModel.clearAll()
+                            showClearDialog = false
+                        } else {
+                            passwordWrong = true
+                        }
                     },
                 ) {
                     Text("Clear")
@@ -509,6 +541,8 @@ private fun CameraPermissionContent(
         }
     }
 }
+
+private const val CLEAR_ATTENDANCE_PASSWORD = "Scifi2026"
 
 private fun formatNow(): String {
     return java.time.Instant.now()

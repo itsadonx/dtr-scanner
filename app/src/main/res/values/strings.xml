@@ -34,9 +34,14 @@
     <string name="settings_tab_voice">Voice</string>
     <string name="settings_tab_database">Database</string>
     <string name="clear_all_history">Clear all attendance history</string>
+    <string name="clear_history_password_title">Admin password</string>
+    <string name="clear_history_password_message">Enter the admin password to clear attendance on this device.</string>
+    <string name="clear_history_password_label">Password</string>
+    <string name="clear_history_password_wrong">Wrong password.</string>
     <string name="settings_voice_section">Voice announcement</string>
     <string name="settings_voice_hint">Speaks the person\'s name when face check-in succeeds.</string>
     <string name="settings_voice_enabled">Enable voice on face check-in</string>
+    <string name="settings_voice_beep_only">Beep only</string>
     <string name="settings_voice_speed">Speech speed</string>
     <string name="settings_voice_pitch">Voice pitch</string>
     <string name="settings_voice_phrase_label">Attendance phrase</string>

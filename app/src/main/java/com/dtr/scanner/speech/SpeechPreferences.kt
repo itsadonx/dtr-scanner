@@ -26,6 +26,10 @@ class SpeechPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_ENABLED, value).apply()
 
+    var beepOnly: Boolean
+        get() = prefs.getBoolean(KEY_BEEP_ONLY, false)
+        set(value) = prefs.edit().putBoolean(KEY_BEEP_ONLY, value).apply()
+
     var speechRate: Float
         get() = prefs.getFloat(KEY_RATE, DEFAULT_RATE)
         set(value) = prefs.edit().putFloat(KEY_RATE, value).apply()
@@ -94,6 +98,7 @@ class SpeechPreferences(context: Context) {
     companion object {
         private const val PREFS_NAME = "attendance_speech"
         private const val KEY_ENABLED = "enabled"
+        private const val KEY_BEEP_ONLY = "beep_only"
         private const val KEY_RATE = "rate"
         private const val KEY_PITCH = "pitch"
         private const val KEY_PHRASE = "phrase"
