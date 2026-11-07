@@ -169,23 +169,26 @@
     }
     #dtr-preview.table-scroll { background: #e8ebf4; padding: 16px; }
     .dtr-sheet {
-      width: 720px;
+      width: 980px;
       max-width: 100%;
       margin: 0 auto 16px;
       background: white;
       border-radius: 8px;
       box-shadow: var(--shadow);
       padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      align-items: stretch;
     }
     .dtr-form {
       border: 1px solid #1e2433;
       padding: 8px 10px 10px;
-      margin-bottom: 10px;
+      margin: 0;
       font-size: 11px;
     }
-    .dtr-form:last-child { margin-bottom: 0; }
     .dtr-form h3 { margin: 0; text-align: center; font-size: 14px; letter-spacing: .04em; }
-    .dtr-form .dtr-meta { display: grid; grid-template-columns: 1.4fr 1fr; gap: 2px 12px; margin: 6px 0; }
+    .dtr-form .dtr-meta { display: grid; grid-template-columns: 1fr; gap: 2px; margin: 6px 0; }
     .dtr-form table { min-width: 0; }
     .dtr-form th, .dtr-form td { padding: 2px 4px; font-size: 10px; }
     .dtr-sign { display: flex; justify-content: flex-end; margin-top: 8px; }
@@ -376,7 +379,7 @@
             </div>
           </div>
           <div class="toolbar">
-            <span id="dtr-status" class="muted">Choose dates, then export. Two DTR forms are printed on each page.</span>
+            <span id="dtr-status" class="muted">Choose dates, then export. Each page has two columns, one DTR form in each column.</span>
           </div>
           <div id="dtr-preview" class="table-scroll"></div>
         </section>
@@ -1139,7 +1142,7 @@
       const titles = {
         guards: ["Guards", "Accounts the phone downloads for online and offline sign-in."],
         employees: ["Employees", "People from scans are listed here. Add house, area, and position, or register someone new."],
-        dtr: ["Daily time record", "One form per employee for the dates you choose. Export puts two forms on each PDF page."],
+        dtr: ["Daily time record", "One form per employee for the dates you choose. Each PDF page has two columns."],
         history: ["Scan history", "QR text is split into ID, last name, first name, and middle name. Scroll inside the table."],
       };
       ["guards", "employees", "dtr", "history"].forEach((name) => {
@@ -1331,8 +1334,11 @@
       out += `${x} ${y} ${width} ${height} re S\n`;
       const left = x + 10;
       const right = x + width - 10;
-      let cursor = y + height - 18;
-      out += `BT /F2 11 Tf ${left + 150} ${cursor} Td (${pdfEscape("DAILY TIME RECORD")}) Tj ET\n`;
+      let cursor = y + height - 16;
+      const title = "DAILY TIME RECORD";
+      const titleWidth = title.length * 4.6;
+      const titleX = left + Math.max(0, (right - left - titleWidth) / 2);
+      out += `BT /F2 9 Tf ${titleX} ${cursor} Td (${pdfEscape(title)}) Tj ET\n`;
       cursor -= 16;
       const meta = [
         `Name: ${name || "-"}`,
@@ -1386,14 +1392,14 @@
       const pageH = 841.89;
       const margin = 16;
       const gap = 8;
-      const formW = pageW - margin * 2;
-      const formH = (pageH - margin * 2 - gap) / 2;
+      const formW = (pageW - margin * 2 - gap) / 2;
+      const formH = pageH - margin * 2;
       const streams = [];
       for (let index = 0; index < packets.length; index += 2) {
-        const top = packets[index];
-        const bottom = packets[index + 1];
-        let stream = drawDtrForm(top, margin, margin + formH + gap, formW, formH);
-        if (bottom) stream += drawDtrForm(bottom, margin, margin, formW, formH);
+        const leftForm = packets[index];
+        const rightForm = packets[index + 1];
+        let stream = drawDtrForm(leftForm, margin, margin, formW, formH);
+        if (rightForm) stream += drawDtrForm(rightForm, margin + formW + gap, margin, formW, formH);
         streams.push(stream);
       }
       if (!streams.length) streams.push("");
@@ -1458,7 +1464,7 @@
         const { packets } = await currentDtrPackets();
         renderDtrPreview(packets);
         const pages = Math.ceil(packets.length / 2);
-        status.textContent = `${packets.length} form${packets.length === 1 ? "" : "s"} on ${pages} page${pages === 1 ? "" : "s"}. Time In is the first scan of the day. Time Out is the last out.`;
+        status.textContent = `${packets.length} form${packets.length === 1 ? "" : "s"} on ${pages} page${pages === 1 ? "" : "s"}, two columns per page. Time In is the first scan of the day. Time Out is the last out.`;
       } catch (error) {
         status.textContent = error.message;
         document.querySelector("#dtr-preview").innerHTML = "";
