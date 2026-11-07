@@ -482,33 +482,8 @@ const server = http.createServer(async (req, res) => {
       const from = String(body.from || "").trim();
       const to = String(body.to || "").trim();
       exportRange(from, to);
-      let target;
-      try {
-        target = new URL(String(body.targetUrl || ""));
-      } catch {
-        sendJson(res, 400, { error: "SHRIS address is not valid." });
-        return;
-      }
-      if (target.protocol !== "http:" && target.protocol !== "https:") {
-        sendJson(res, 400, { error: "SHRIS address must start with http or https." });
-        return;
-      }
-      const store = loadStore();
-      const records = attendanceRows(store, from, to);
-      const response = await fetch(target, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: String(body.token || ""), records }),
-      });
-      const text = await response.text();
-      let data = {};
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        data = { error: "SHRIS did not accept the attendance upload." };
-      }
-      if (!response.ok && !data.error) data.error = "SHRIS rejected the attendance upload.";
-      sendJson(res, response.ok ? 200 : 502, data);
+      const records = attendanceRows(loadStore(), from, to);
+      sendJson(res, 200, { ok: true, from, to, records });
       return;
     }
 
