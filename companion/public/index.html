@@ -1432,10 +1432,10 @@
       const gap = 12;
       const signW = (right - left - gap) / 2;
       const signY = y + 24;
-      const name = clipText(employeeFullName(employee), 7, signW - 4);
-      const nameWidth = name.length * 3.4;
+      const signedName = clipText(employeeFullName(employee), 7, signW - 4);
+      const nameWidth = signedName.length * 3.4;
       out += `${left} ${signY} m ${left + signW} ${signY} l S\n`;
-      out += `BT /F2 7 Tf ${left + Math.max(2, (signW - nameWidth) / 2)} ${signY + 2} Td (${name}) Tj ET\n`;
+      out += `BT /F2 7 Tf ${left + Math.max(2, (signW - nameWidth) / 2)} ${signY + 2} Td (${signedName}) Tj ET\n`;
       out += `BT /F1 6 Tf ${left + signW / 2 - 22} ${signY - 9} Td (Signature) Tj ET\n`;
       const ackX = left + signW + gap;
       out += `${ackX} ${signY} m ${right} ${signY} l S\n`;
