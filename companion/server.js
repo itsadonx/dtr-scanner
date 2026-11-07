@@ -235,6 +235,63 @@ function syncGuard(guard) {
   };
 }
 
+function manilaStamp(epochMs) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(epochMs));
+  const value = (type) => (parts.find((part) => part.type === type) || {}).value || "";
+  const hour = value("hour") === "24" ? "00" : value("hour");
+  if (!value("year") || !hour) return null;
+  return {
+    date: `${value("year")}-${value("month")}-${value("day")}`,
+    time: `${hour}:${value("minute")}:${value("second")}`,
+  };
+}
+
+function attendanceRows(store, from, to) {
+  const grouped = new Map();
+  for (const scan of store.scans || []) {
+    const person = personFromContent(scan.content);
+    const employeeCode = String((person && person.employeeCode) || "").trim();
+    if (!employeeCode) continue;
+    const stamp = manilaStamp(Number(scan.scannedAtEpochMs) || 0);
+    if (!stamp || stamp.date < from || stamp.date > to) continue;
+    const key = `${employeeCode.toLowerCase()}|${stamp.date}`;
+    let row = grouped.get(key);
+    if (!row) {
+      row = { employeeCode, date: stamp.date, timeIn: "", timeOut: "" };
+      grouped.set(key, row);
+    }
+    const isOut = String(scan.attendanceDirection || "IN").toUpperCase() === "OUT";
+    if (!isOut && !row.timeIn) row.timeIn = stamp.time;
+    if (isOut) row.timeOut = stamp.time;
+  }
+  return [...grouped.values()].sort((a, b) =>
+    a.date.localeCompare(b.date) || a.employeeCode.localeCompare(b.employeeCode),
+  );
+}
+
+function exportRange(from, to) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    throw new Error("Choose a from date and a to date.");
+  }
+  const start = Date.parse(`${from}T00:00:00Z`);
+  const end = Date.parse(`${to}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) {
+    throw new Error("The end date must be on or after the start date.");
+  }
+  if ((end - start) / 86400000 > 62) {
+    throw new Error("Import up to 62 days at a time.");
+  }
+}
+
 function lanAddresses() {
   const addresses = [];
   for (const entries of Object.values(os.networkInterfaces())) {
@@ -248,6 +305,23 @@ function lanAddresses() {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const route = `${req.method} ${url.pathname}`;
+  const origin = req.headers.origin || "";
+  if (origin) {
+    const cors = {
+      "Access-Control-Allow-Origin": origin,
+      "Vary": "Origin",
+      "Access-Control-Allow-Headers": "Content-Type, X-Device-Key",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Private-Network": "true",
+    };
+    const writeHead = res.writeHead.bind(res);
+    res.writeHead = (status, headers) => writeHead(status, { ...cors, ...(headers || {}) });
+  }
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
 
   try {
     if (route === "GET /" || route === "GET /index.html") {
@@ -396,6 +470,45 @@ const server = http.createServer(async (req, res) => {
       }
       const store = loadStore();
       sendJson(res, 200, { guards: store.guards.map(syncGuard) });
+      return;
+    }
+
+    if (route === "POST /api/export/attendance") {
+      if (!deviceAuthorized(req)) {
+        sendJson(res, 401, { error: "Wrong device key." });
+        return;
+      }
+      const body = await readBody(req);
+      const from = String(body.from || "").trim();
+      const to = String(body.to || "").trim();
+      exportRange(from, to);
+      let target;
+      try {
+        target = new URL(String(body.targetUrl || ""));
+      } catch {
+        sendJson(res, 400, { error: "SHRIS address is not valid." });
+        return;
+      }
+      if (target.protocol !== "http:" && target.protocol !== "https:") {
+        sendJson(res, 400, { error: "SHRIS address must start with http or https." });
+        return;
+      }
+      const store = loadStore();
+      const records = attendanceRows(store, from, to);
+      const response = await fetch(target, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: String(body.token || ""), records }),
+      });
+      const text = await response.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { error: "SHRIS did not accept the attendance upload." };
+      }
+      if (!response.ok && !data.error) data.error = "SHRIS rejected the attendance upload.";
+      sendJson(res, response.ok ? 200 : 502, data);
       return;
     }
 
