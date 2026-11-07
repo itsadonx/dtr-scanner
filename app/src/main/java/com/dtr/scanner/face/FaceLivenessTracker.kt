@@ -84,7 +84,7 @@ class FaceLivenessTracker {
         if (isVerified(nowMs)) {
             val verifiedHint = when (mode) {
                 Mode.ENROLLMENT -> "Live check passed — hold still for face samples."
-                Mode.CHECK_IN -> "Live check passed — matching face…"
+                Mode.CHECK_IN -> "Keep your face toward the camera. Matching…"
             }
             return LivenessUpdate(
                 hint = verifiedHint,
@@ -120,9 +120,13 @@ class FaceLivenessTracker {
         }
 
         if (challengeOk) {
-            verifiedUntilMs = nowMs + VERIFICATION_WINDOW_MS
+            val windowMs = if (mode == Mode.CHECK_IN) CHECK_IN_WINDOW_MS else VERIFICATION_WINDOW_MS
+            verifiedUntilMs = nowMs + windowMs
             return LivenessUpdate(
-                hint = "Live check passed — hold still for face samples.",
+                hint = when (mode) {
+                    Mode.CHECK_IN -> "Keep your face toward the camera. Matching…"
+                    Mode.ENROLLMENT -> "Live check passed — hold still for face samples."
+                },
                 verified = true,
                 rejectedPhoto = false,
                 enrollmentGuide = if (mode == Mode.ENROLLMENT) {
@@ -135,7 +139,7 @@ class FaceLivenessTracker {
 
         val hint = when (mode) {
             Mode.CHECK_IN -> when {
-                !sawBlink -> "Blink once so we know you're live (not a photo)."
+                !sawBlink -> "Blink once to begin matching."
                 else -> "Verifying…"
             }
 
@@ -347,6 +351,7 @@ class FaceLivenessTracker {
         private const val YAW_DELTA_RESET_DEG = 0.45f
         private const val STATIC_FRAME_LIMIT = 45
         private const val VERIFICATION_WINDOW_MS = 5_000L
+        private const val CHECK_IN_WINDOW_MS = 8_000L
         private const val PHOTO_REJECT_COOLDOWN_MS = 2_500L
         private const val CELEBRATION_MS = 1_200L
         private const val BLINK_BIT = 1 shl 0

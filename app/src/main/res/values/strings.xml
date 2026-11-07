@@ -84,6 +84,7 @@
     <string name="qr_scan_duplicate_toast">Same QR already scanned within 1 minute.</string>
     <string name="scan_face_instruction">Align your face within the frame.</string>
     <string name="face_scan_not_recognized">Not recognized</string>
+    <string name="face_scan_not_found">Not found</string>
     <string name="face_scan_success_cd">Face recognized</string>
     <string name="face_scan_failed_cd">Face not recognized</string>
     <string name="face_scan_duplicate_cd">Duplicate check-in blocked</string>

@@ -97,8 +97,8 @@ fun FaceScanMatchFeedback(
                         modifier = Modifier.size(88.dp),
                     )
                     Text(
-                        text = stringResource(R.string.face_scan_not_recognized),
-                        style = MaterialTheme.typography.titleMedium,
+                        text = stringResource(R.string.face_scan_not_found),
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                         color = Color.White,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 12.dp),

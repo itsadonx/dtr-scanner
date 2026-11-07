@@ -287,18 +287,32 @@ object FaceSignature {
             }
             val dx = ax - bx
             val dy = ay - by
-            val pairIndex = i / 2
-            val pairWeight = when {
-                pairIndex < landmarkPairWeights.size -> landmarkPairWeights[pairIndex]
-                pairIndex < landmarkPairWeights.size + 16 -> 1.35f
-                else -> 1.05f
-            }
+            val pairWeight = pairWeight(i / 2)
             sum += pairWeight * (dx * dx + dy * dy)
             weightTotal += pairWeight * 2f
             i += 2
         }
         if (weightTotal < 10f) return Float.MAX_VALUE
         return sqrt(sum / weightTotal)
+    }
+
+    /**
+     * Eyes and nose stay heavy. The outer oval, especially the hairline, stays light
+     * so a haircut or bangs do not dominate the score. Landmark positions are already
+     * independent of skin brightness.
+     */
+    private fun pairWeight(pairIndex: Int): Float {
+        return when {
+            pairIndex < landmarkPairWeights.size -> landmarkPairWeights[pairIndex]
+            pairIndex < 22 -> 1.4f
+            pairIndex < 32 -> 1.5f
+            pairIndex < 48 -> 1.1f
+            else -> {
+                val outlineIndex = pairIndex - 48
+                val fromHairline = abs(outlineIndex - 12)
+                if (fromHairline <= 5) 0.12f else 0.4f
+            }
+        }
     }
     fun average(samples: List<FloatArray>): FloatArray? {
         if (samples.isEmpty()) return null

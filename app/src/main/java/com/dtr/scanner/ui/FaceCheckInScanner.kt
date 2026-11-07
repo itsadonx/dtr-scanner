@@ -41,6 +41,7 @@ fun FaceCheckInScanner(
     onLivenessHint: (String) -> Unit,
     onRecognized: (String) -> Unit,
     onFaceUnknown: () -> Unit,
+    onNotFound: () -> Unit = {},
     onFaceAmbiguous: () -> Unit,
     onNeedsReEnroll: () -> Unit,
     onRescanReady: () -> Unit = {},
@@ -54,7 +55,7 @@ fun FaceCheckInScanner(
     var afterFailure by remember(livenessSessionKey) { mutableStateOf<(() -> Unit)?>(null) }
     var consensusName by remember(livenessSessionKey) { mutableStateOf<String?>(null) }
     var consensusCount by remember(livenessSessionKey) { mutableIntStateOf(0) }
-    var unknownStreak by remember(livenessSessionKey) { mutableIntStateOf(0) }
+    var searchArmed by remember(livenessSessionKey) { mutableStateOf(false) }
 
     val enrolledTemplateSizes = remember(enrolled) {
         enrolled.map { it.template.size }.toSet()
@@ -67,6 +68,18 @@ fun FaceCheckInScanner(
     }
     val matchTemplateSizes = remember(enrolledTemplateSizes) {
         enrolledTemplateSizes.takeIf { it.size > 1 }
+    }
+
+    LaunchedEffect(livenessSessionKey, searchArmed, outcome) {
+        if (!searchArmed || outcome != null) return@LaunchedEffect
+        delay(SEARCH_WINDOW_MS)
+        if (outcome == null) {
+            consensusName = null
+            consensusCount = 0
+            onNotFound()
+            afterFailure = onFaceUnknown
+            outcome = FaceScanOutcome.NotRecognized
+        }
     }
 
     LaunchedEffect(outcome) {
@@ -111,6 +124,7 @@ fun FaceCheckInScanner(
             onFaceSignature = {},
             onFaceCapture = { capture ->
                 if (outcome != null) return@FaceRecognitionScreen
+                if (!searchArmed) searchArmed = true
                 if (hasLegacyProfiles && enrolled.isEmpty()) {
                     onNeedsReEnroll()
                     return@FaceRecognitionScreen
@@ -135,7 +149,6 @@ fun FaceCheckInScanner(
                     }
 
                     result.displayName != null -> {
-                        unknownStreak = 0
                         if (consensusName == result.displayName) {
                             consensusCount++
                         } else {
@@ -156,12 +169,6 @@ fun FaceCheckInScanner(
                     else -> {
                         consensusName = null
                         consensusCount = 0
-                        unknownStreak++
-                        if (unknownStreak >= UNKNOWN_STREAK_LIMIT) {
-                            unknownStreak = 0
-                            afterFailure = onFaceUnknown
-                            outcome = FaceScanOutcome.NotRecognized
-                        }
                     }
                 }
             },
@@ -210,10 +217,9 @@ fun FaceCheckInScanner(
 }
 
 private const val SUCCESS_DISPLAY_MS = 1_600L
-private const val FAIL_DISPLAY_MS = 1_400L
+private const val FAIL_DISPLAY_MS = 2_200L
+private const val SEARCH_WINDOW_MS = 7_000L
 private const val DUPLICATE_DISPLAY_MS = 1_600L
 
 /** Require repeated agreement before check-in to reduce one-frame mis-identification. */
 private const val MATCH_CONSENSUS_FRAMES = 3
-
-private const val UNKNOWN_STREAK_LIMIT = 8

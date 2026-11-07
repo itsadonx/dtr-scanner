@@ -78,7 +78,7 @@ fun SecureAttendApp() {
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
     var showPasswordDialog by rememberSaveable { mutableStateOf(false) }
 
-    var faceStatus by rememberSaveable { mutableStateOf("Blink once to check in.") }
+    var faceStatus by rememberSaveable { mutableStateOf("Blink once to begin matching.") }
     var enrollStatus by rememberSaveable { mutableStateOf("Blink and move your head to start enrollment.") }
     var faceLivenessSession by rememberSaveable { mutableIntStateOf(0) }
     var enrollLivenessSession by rememberSaveable { mutableIntStateOf(0) }
@@ -177,7 +177,7 @@ fun SecureAttendApp() {
                     onUseFrontCameraChange = { useFront ->
                         faceScanUseFrontCamera = useFront
                         faceLivenessSession++
-                        faceStatus = "Blink once to check in."
+                        faceStatus = "Blink once to begin matching."
                     },
                     isDuplicateCheckIn = { name ->
                         viewModel.isFaceCheckInDuplicate(name, records)
@@ -204,8 +204,11 @@ fun SecureAttendApp() {
                         faceStatus = "Duplicate blocked — scan next person."
                     },
                     onRescanReady = { faceLivenessSession++ },
+                    onNotFound = {
+                        speechAnnouncer.beepError()
+                    },
                     onFaceUnknown = {
-                        faceStatus = "Not recognized — register on Settings."
+                        faceStatus = "Not found. Blink once to try again."
                     },
                     onFaceAmbiguous = {
                         faceStatus = "Look at the camera and try again."
@@ -522,6 +525,7 @@ private fun FaceScanContent(
     onLivenessHint: (String) -> Unit,
     onRecognized: (String) -> Unit,
     onFaceUnknown: () -> Unit,
+    onNotFound: () -> Unit = {},
     onFaceAmbiguous: () -> Unit,
     onNeedsReEnroll: () -> Unit,
     onRescanReady: () -> Unit = {},
@@ -552,6 +556,7 @@ private fun FaceScanContent(
         onLivenessHint = onLivenessHint,
         onRecognized = onRecognized,
         onFaceUnknown = onFaceUnknown,
+        onNotFound = onNotFound,
         onFaceAmbiguous = onFaceAmbiguous,
         onNeedsReEnroll = onNeedsReEnroll,
         onRescanReady = onRescanReady,
